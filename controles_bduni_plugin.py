@@ -22,13 +22,14 @@
  ***************************************************************************/
 """
 from qgis.PyQt.QtCore import QSettings, QTranslator, QCoreApplication
+from qgis import QtCore
+from qgis.core import QgsProject, Qgis
 from qgis.PyQt.QtGui import QIcon
-from qgis.PyQt.QtWidgets import QAction
+from qgis.PyQt.QtWidgets import QAction, QListWidget, QListWidgetItem
 
 # Initialize Qt resources from file resources.py
 from .resources import *
-from .ControlList import ControlList
-from .LayerList import LayerList
+from .controls import doublon
 # Import the code for the dialog
 from .controles_bduni_plugin_dialog import ControlesBDUniPluginDialog
 import os.path
@@ -181,6 +182,73 @@ class ControlesBDUniPlugin:
                 action)
             self.iface.removeToolBarIcon(action)
 
+    def check_all_controls(self):
+        for i in range(self.dlg.controlListWidget.count()):
+            item = self.dlg.controlListWidget.item(i)
+            item.setCheckState(QtCore.Qt.Checked)
+
+    def uncheck_all_controls(self):
+        for i in range(self.dlg.controlListWidget.count()):
+            item = self.dlg.controlListWidget.item(i)
+            item.setCheckState(QtCore.Qt.Unchecked)
+
+    def check_all_layers(self):
+        for i in range(self.dlg.layerListWidget.count()):
+            item = self.dlg.layerListWidget.item(i)
+            item.setCheckState(QtCore.Qt.Checked)
+
+    def uncheck_all_layers(self):
+        for i in range(self.dlg.layerListWidget.count()):
+            item = self.dlg.layerListWidget.item(i)
+            item.setCheckState(QtCore.Qt.Unchecked)
+
+
+    def load_controls(self):
+        directory_path = os.path.dirname(__file__)+'/controls'
+        files = [f.split('.')[0] for f in os.listdir(directory_path) if os.path.isfile(os.path.join(directory_path, f))]
+        for i in files:
+            item = QListWidgetItem(i.replace('_',' '))
+            item.setFlags(item.flags() | QtCore.Qt.ItemIsUserCheckable)
+            item.setCheckState(QtCore.Qt.Unchecked)
+            self.dlg.controlListWidget.addItem(item)
+
+
+    def load_layers(self):
+        layers = QgsProject.instance().layerTreeRoot().children()
+        for i in layers:
+            item = QListWidgetItem(i.name())
+            item.setFlags(item.flags() | QtCore.Qt.ItemIsUserCheckable)
+            item.setCheckState(QtCore.Qt.Unchecked)
+            self.dlg.layerListWidget.addItem(item)
+
+    def run_controls(self):
+        controls = []
+        layers = []
+        for i in range(self.dlg.controlListWidget.count()):
+            control_item = self.dlg.controlListWidget.item(i)
+            if control_item.checkState() == QtCore.Qt.Checked:
+                controls.append(control_item)
+        for j in range(self.dlg.layerListWidget.count()):
+            layer_item = self.dlg.layerListWidget.item(j)
+            if layer_item.checkState() == QtCore.Qt.Checked:
+                layers.append(layer_item.text())
+        if controls == []:
+            self.iface.messageBar().clearWidgets()
+            self.iface.messageBar().pushMessage("Erreur", "Aucun contrôle séléctionné", level=Qgis.Warning, duration=10)
+            raise Exception
+        if layers == []:
+            self.iface.messageBar().clearWidgets()
+            self.iface.messageBar().pushMessage("Erreur", "Aucune couche séléctionnée", level=Qgis.Warning, duration=10)
+            raise Exception
+        for control in controls:
+            if control.text() == 'doublon':
+                    doublon.doublon(layers)
+        self.iface.messageBar().clearWidgets()
+        self.iface.messageBar().pushMessage("Info", "Controles terminés", level=Qgis.Info, duration=10)
+
+
+
+
 
     def run(self):
         """Run method that performs all the real work"""
@@ -190,9 +258,13 @@ class ControlesBDUniPlugin:
         if self.first_start == True:
             self.first_start = False
             self.dlg = ControlesBDUniPluginDialog()
-            self.controlList = ControlList(self.iface)
-            self.controlList.load_controls()
-            self.layerList = LayerList(self.iface)
+            self.load_controls()
+            self.load_layers()
+            self.dlg.allControlsButton.clicked.connect(self.check_all_controls)
+            self.dlg.noControlButton.clicked.connect(self.uncheck_all_controls)
+            self.dlg.allLayersButton.clicked.connect(self.check_all_layers)
+            self.dlg.noLayerButton.clicked.connect(self.uncheck_all_layers)
+
 
         # show the dialog
         self.dlg.show()
@@ -202,4 +274,7 @@ class ControlesBDUniPlugin:
         if result:
             # Do something useful here - delete the line containing pass and
             # substitute with your code.
-            pass
+            try:
+                self.run_controls()
+            except Exception as e:
+                return
