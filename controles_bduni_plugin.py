@@ -28,12 +28,8 @@ from qgis.PyQt.QtGui import QIcon
 from qgis.PyQt.QtWidgets import QAction, QListWidget, QListWidgetItem
 
 # Initialize Qt resources from file resources.py
-<<<<<<< HEAD
+
 from .controls import controles_geometriques, controles_attributaires
-=======
-from .resources import *
-from .controls import controles_geometriques
->>>>>>> 2617f6507858cfcfd3249259777e3834be6300aa
 # Import the code for the dialog
 from .controles_bduni_plugin_dialog import ControlesBDUniPluginDialog
 import os.path
@@ -210,11 +206,7 @@ class ControlesBDUniPlugin:
             self.iface.messageBar().pushMessage("Erreur", "Aucune couche séléctionnée", level=Qgis.Warning, duration=10)
             raise Exception
         for control in controls:
-<<<<<<< HEAD
             if control.text() == 'doublon geometrique':
-=======
-            if control.text() == 'doublon':
->>>>>>> 2617f6507858cfcfd3249259777e3834be6300aa
                     controles_geometriques.doublon_geometrique(layers)
         self.iface.messageBar().clearWidgets()
         self.iface.messageBar().pushMessage("Info", "Controles terminés", level=Qgis.Info, duration=10)
