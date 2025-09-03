@@ -8,6 +8,7 @@ def create_controlpoint_layer(layer_name):
     provider.addAttributes([QgsField("type", QVariant.String),
                             QgsField("couche", QVariant.String),
                             QgsField("id", QVariant.String),
+                            QgsField("attribut", QVariant.String),
                             QgsField("commentaire", QVariant.String)])
     controlpoint_layer.updateFields()
     QgsProject.instance().addMapLayer(controlpoint_layer)

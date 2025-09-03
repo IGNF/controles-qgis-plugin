@@ -25,14 +25,19 @@
 import os
 
 from qgis.PyQt import uic
-from qgis.PyQt import QtWidgets
+from qgis import QtCore
+from qgis.core import QgsProject, Qgis
+
+from qgis.PyQt.QtWidgets import QAction, QListWidget, QListWidgetItem, QDialog
+
+import ast
 
 # This loads your .ui file so that PyQt can populate your plugin with the elements from Qt Designer
 FORM_CLASS, _ = uic.loadUiType(os.path.join(
     os.path.dirname(__file__), 'controles_bduni_plugin_dialog_base.ui'))
 
 
-class ControlesBDUniPluginDialog(QtWidgets.QDialog, FORM_CLASS):
+class ControlesBDUniPluginDialog(QDialog, FORM_CLASS):
     def __init__(self, parent=None):
         """Constructor."""
         super(ControlesBDUniPluginDialog, self).__init__(parent)
@@ -42,3 +47,60 @@ class ControlesBDUniPluginDialog(QtWidgets.QDialog, FORM_CLASS):
         # http://qt-project.org/doc/qt-4.8/designer-using-a-ui-file.html
         # #widgets-and-dialogs-with-auto-connect
         self.setupUi(self)
+        self.load_controls()
+        self.load_layers()
+        self.init_signals()
+
+
+    def init_signals(self):
+        self.allControlsButton.clicked.connect(self.check_all_controls)
+        self.noControlButton.clicked.connect(self.uncheck_all_controls)
+        self.allLayersButton.clicked.connect(self.check_all_layers)
+        self.noLayerButton.clicked.connect(self.uncheck_all_layers)
+
+
+    def check_all_controls(self):
+        for i in range(self.controlListWidget.count()):
+            item = self.controlListWidget.item(i)
+            item.setCheckState(QtCore.Qt.Checked)
+
+    def uncheck_all_controls(self):
+        for i in range(self.controlListWidget.count()):
+            item = self.controlListWidget.item(i)
+            item.setCheckState(QtCore.Qt.Unchecked)
+
+    def check_all_layers(self):
+        for i in range(self.layerListWidget.count()):
+            item = self.layerListWidget.item(i)
+            item.setCheckState(QtCore.Qt.Checked)
+
+    def uncheck_all_layers(self):
+        for i in range(self.layerListWidget.count()):
+            item = self.layerListWidget.item(i)
+            item.setCheckState(QtCore.Qt.Unchecked)
+
+
+    def load_controls(self):
+        functions = []
+        directory_path = os.path.dirname(__file__) + '/controls'
+        for f in os.listdir(directory_path):
+            if os.path.isfile(os.path.join(directory_path, f)):
+                with open(os.path.join(directory_path, f), "r") as file:
+                    tree = ast.parse(file.read())
+                for node in tree.body:
+                    if isinstance(node, ast.FunctionDef):
+                        functions.append(node.name)
+        for i in functions:
+            item = QListWidgetItem(i.replace('_',' '))
+            item.setFlags(item.flags() | QtCore.Qt.ItemIsUserCheckable)
+            item.setCheckState(QtCore.Qt.Unchecked)
+            self.controlListWidget.addItem(item)
+
+
+    def load_layers(self):
+        layers = QgsProject.instance().layerTreeRoot().children()
+        for i in layers:
+            item = QListWidgetItem(i.name())
+            item.setFlags(item.flags() | QtCore.Qt.ItemIsUserCheckable)
+            item.setCheckState(QtCore.Qt.Unchecked)
+            self.layerListWidget.addItem(item)
