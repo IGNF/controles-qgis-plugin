@@ -5,16 +5,25 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="b7a66ce2-fd20-4892-b827-f9f7d2406ac6" name="Default" comment="">
+<<<<<<< HEAD
       <change afterPath="$PROJECT_DIR$/ControlPointLayer.py" afterDir="false" />
+=======
+>>>>>>> 2617f6507858cfcfd3249259777e3834be6300aa
       <change afterPath="$PROJECT_DIR$/controls/controles_attributaires.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/controles_bduni_plugin.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/controles_bduni_plugin.iml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+<<<<<<< HEAD
       <change beforePath="$PROJECT_DIR$/ControlList.py" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/LayerList.py" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/control_manager.py" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/controles_bduni_plugin.py" beforeDir="false" afterPath="$PROJECT_DIR$/controles_bduni_plugin.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/controles_bduni_plugin_dialog.py" beforeDir="false" afterPath="$PROJECT_DIR$/controles_bduni_plugin_dialog.py" afterDir="false" />
+=======
+      <change beforePath="$PROJECT_DIR$/ControlList.py" beforeDir="false" afterPath="$PROJECT_DIR$/ControlList.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/control_manager.py" beforeDir="false" afterPath="$PROJECT_DIR$/control_manager.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/controles_bduni_plugin.py" beforeDir="false" afterPath="$PROJECT_DIR$/controles_bduni_plugin.py" afterDir="false" />
+>>>>>>> 2617f6507858cfcfd3249259777e3834be6300aa
       <change beforePath="$PROJECT_DIR$/controls/doublon.py" beforeDir="false" afterPath="$PROJECT_DIR$/controls/controles_geometriques.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
