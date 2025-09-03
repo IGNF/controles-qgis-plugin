@@ -29,7 +29,7 @@ from qgis.PyQt.QtWidgets import QAction, QListWidget, QListWidgetItem
 
 # Initialize Qt resources from file resources.py
 from .resources import *
-from .controls import doublon
+from .controls import controles_geometriques
 # Import the code for the dialog
 from .controles_bduni_plugin_dialog import ControlesBDUniPluginDialog
 import os.path
@@ -242,7 +242,7 @@ class ControlesBDUniPlugin:
             raise Exception
         for control in controls:
             if control.text() == 'doublon':
-                    doublon.doublon(layers)
+                    controles_geometriques.doublon_geometrique(layers)
         self.iface.messageBar().clearWidgets()
         self.iface.messageBar().pushMessage("Info", "Controles terminés", level=Qgis.Info, duration=10)
 

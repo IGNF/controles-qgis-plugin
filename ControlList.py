@@ -10,8 +10,7 @@ class ControlList(QListWidget):
 
     def load_controls(self):
         directory_path = os.path.dirname(__file__)+'/controls'
-        files = [f.split('.')[0] for f in os.listdir(directory_path) if os.path.isfile(os.path.join(directory_path, f))]
-        print(files)
+        files = [f.split('.')[0].replace('_',' ') for f in os.listdir(directory_path) if os.path.isfile(os.path.join(directory_path, f))]
         for i in files:
             item = QListWidgetItem(i)
             item.setFlags(QtCore.Qt.ItemIsUserCheckable)
