@@ -28,11 +28,12 @@ from qgis.PyQt.QtGui import QIcon
 from qgis.PyQt.QtWidgets import QAction, QListWidget, QListWidgetItem
 
 # Initialize Qt resources from file resources.py
-from .resources import *
-from .controls import doublon
+from .controls import controles_geometriques, controles_attributaires
 # Import the code for the dialog
 from .controles_bduni_plugin_dialog import ControlesBDUniPluginDialog
 import os.path
+
+
 
 
 class ControlesBDUniPlugin:
@@ -46,6 +47,7 @@ class ControlesBDUniPlugin:
             application at run time.
         :type iface: QgsInterface
         """
+
         # Save reference to the QGIS interface
         self.iface = iface
         # initialize plugin directory
@@ -182,44 +184,6 @@ class ControlesBDUniPlugin:
                 action)
             self.iface.removeToolBarIcon(action)
 
-    def check_all_controls(self):
-        for i in range(self.dlg.controlListWidget.count()):
-            item = self.dlg.controlListWidget.item(i)
-            item.setCheckState(QtCore.Qt.Checked)
-
-    def uncheck_all_controls(self):
-        for i in range(self.dlg.controlListWidget.count()):
-            item = self.dlg.controlListWidget.item(i)
-            item.setCheckState(QtCore.Qt.Unchecked)
-
-    def check_all_layers(self):
-        for i in range(self.dlg.layerListWidget.count()):
-            item = self.dlg.layerListWidget.item(i)
-            item.setCheckState(QtCore.Qt.Checked)
-
-    def uncheck_all_layers(self):
-        for i in range(self.dlg.layerListWidget.count()):
-            item = self.dlg.layerListWidget.item(i)
-            item.setCheckState(QtCore.Qt.Unchecked)
-
-
-    def load_controls(self):
-        directory_path = os.path.dirname(__file__)+'/controls'
-        files = [f.split('.')[0] for f in os.listdir(directory_path) if os.path.isfile(os.path.join(directory_path, f))]
-        for i in files:
-            item = QListWidgetItem(i.replace('_',' '))
-            item.setFlags(item.flags() | QtCore.Qt.ItemIsUserCheckable)
-            item.setCheckState(QtCore.Qt.Unchecked)
-            self.dlg.controlListWidget.addItem(item)
-
-
-    def load_layers(self):
-        layers = QgsProject.instance().layerTreeRoot().children()
-        for i in layers:
-            item = QListWidgetItem(i.name())
-            item.setFlags(item.flags() | QtCore.Qt.ItemIsUserCheckable)
-            item.setCheckState(QtCore.Qt.Unchecked)
-            self.dlg.layerListWidget.addItem(item)
 
     def run_controls(self):
         controls = []
@@ -241,13 +205,12 @@ class ControlesBDUniPlugin:
             self.iface.messageBar().pushMessage("Erreur", "Aucune couche séléctionnée", level=Qgis.Warning, duration=10)
             raise Exception
         for control in controls:
-            if control.text() == 'doublon':
-                    doublon.doublon(layers)
+            if control.text() == 'doublon geometrique':
+                controles_geometriques.doublon_geometrique(layers)
+            elif control.text() == 'valid geometry':
+                controles_geometriques.valid_geometry(layers)
         self.iface.messageBar().clearWidgets()
         self.iface.messageBar().pushMessage("Info", "Controles terminés", level=Qgis.Info, duration=10)
-
-
-
 
 
     def run(self):
@@ -257,15 +220,8 @@ class ControlesBDUniPlugin:
         # Only create GUI ONCE in callback, so that it will only load when the plugin is started
         if self.first_start == True:
             self.first_start = False
-            self.dlg = ControlesBDUniPluginDialog()
-            self.load_controls()
-            self.load_layers()
-            self.dlg.allControlsButton.clicked.connect(self.check_all_controls)
-            self.dlg.noControlButton.clicked.connect(self.uncheck_all_controls)
-            self.dlg.allLayersButton.clicked.connect(self.check_all_layers)
-            self.dlg.noLayerButton.clicked.connect(self.uncheck_all_layers)
 
-
+        self.dlg = ControlesBDUniPluginDialog()
         # show the dialog
         self.dlg.show()
         # Run the dialog event loop
