@@ -97,3 +97,4 @@ def attribute_json_check(layers_names, attributes_dict, schema):
     if attributes != []:
         controlpoint_layer = ControlPointLayer('json_check')
         controlpoint_layer.add_features(attributes)
+

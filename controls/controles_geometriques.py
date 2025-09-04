@@ -1,6 +1,7 @@
 from qgis.core import QgsProject, QgsWkbTypes
 from ..ControlPointLayer import ControlPointLayer
 
+
 def doublon_geometrique(layers_names):
     """
     :param layers_names: array
@@ -33,18 +34,13 @@ def valid_geometry(layers_names):
     for layer_name in layers_names:
         layer = QgsProject.instance().mapLayersByName(layer_name)[0]
         for f in layer.getFeatures():
-            print(f.geometry().asWkt())
             if not f.geometry().isGeosValid():
-                print('not valid')
                 geom_not_valid.append(['valid_geometry',
                                        layer_name,
                                        f.id(),
                                        'geometry',
                                        'geometrie invalide',
                                        f.geometry().centroid()])
-            else:
-                print('valid')
-    print(geom_not_valid)
     if geom_not_valid!=[]:
         controlpoint_layer = ControlPointLayer('valid_geometry')
         controlpoint_layer.add_features(geom_not_valid)

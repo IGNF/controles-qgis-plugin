@@ -27,7 +27,6 @@ from qgis.core import QgsProject, Qgis
 from qgis.PyQt.QtGui import QIcon
 from qgis.PyQt.QtWidgets import QAction, QListWidget, QListWidgetItem
 
-# Initialize Qt resources from file resources.py
 from .controls import controles_geometriques, controles_attributaires
 # Import the code for the dialog
 from .controles_bduni_plugin_dialog import ControlesBDUniPluginDialog
