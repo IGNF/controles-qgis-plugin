@@ -49,11 +49,11 @@ def attribute_size(layers_names, param_json):
         controlpoint_layer.add_features(attributes)
 
 
+<<<<<<< HEAD
 def attribute_values(layers_names, param_json):
     """
     :param layers_names: array
     :param param_json: {'nom':[value1,value2,value3]}
-    :return:
     """
     attributes = []
     for layer_name in layers_names:
