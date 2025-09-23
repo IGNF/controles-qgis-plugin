@@ -1,6 +1,7 @@
 from qgis.core import QgsProject, QgsWkbTypes
 from ..ControlPointLayer import ControlPointLayer
 
+
 def doublon_geometrique(layers_names):
     """
     :param layers_names: array
@@ -77,6 +78,7 @@ def micro_object(layers_names, param_json):
     if micro_object != []:
         controlpoint_layer = ControlPointLayer('micro_object')
         controlpoint_layer.add_features(micro_object)
+
 
 
 

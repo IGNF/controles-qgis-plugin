@@ -36,8 +36,6 @@ import json
 import inspect
 
 
-
-
 class ControlesBDUniPlugin:
     """QGIS Plugin Implementation."""
 
@@ -221,7 +219,6 @@ class ControlesBDUniPlugin:
             if num_args == 1:
                 func(layers)
             elif num_args == 2:
-                print(self.param)
                 func(layers, self.param[functext])
         self.iface.messageBar().clearWidgets()
         self.iface.messageBar().pushMessage("Info", "Controles terminés", level=Qgis.Info, duration=10)
