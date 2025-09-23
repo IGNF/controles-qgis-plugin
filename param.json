@@ -1,3 +1,7 @@
 {"micro_object":
 	{"emprise_gcvs":"15",
-	"controle_lineaire": "30"}
+	"controle_lineaire": "30"},
+"not_null_attribute":
+	{"emprise_gcvs": ["not_null"],
+	"controle_lineaire": ["not_null_1","not_null_2"]}
+	}

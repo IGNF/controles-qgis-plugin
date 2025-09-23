@@ -1,4 +1,4 @@
-from qgis.core import QgsProject
+from qgis.core import QgsProject, NULL
 from ..ControlPointLayer import ControlPointLayer
 import json
 
@@ -14,7 +14,7 @@ def not_null_attribute(layers_names, param_json):
         layer = QgsProject.instance().mapLayersByName(layer_name)[0]
         for feature in layer.getFeatures():
             for attribute in param_layer:
-                if feature.isNull(feature.fieldNameIndex(attribute)):
+                if feature[attribute]==NULL:
                     null_attributes_feature.append(['attributs_not_null',
                                                     layer_name,
                                                     feature.id(),
