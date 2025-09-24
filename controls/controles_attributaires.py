@@ -89,18 +89,22 @@ def attribute_json_check(layers_names, param_json):
     """
     attributes = []
     for layer_name in layers_names:
+        if layer_name not in param_json.keys():
+            continue
         param_layer = param_json[layer_name]
         layer = QgsProject.instance().mapLayersByName(layer_name)[0]
         for feature in layer.getFeatures():
-            for att, values in param_layer:
+            for att in param_layer:
+                if feature[att] == NULL:
+                    continue
                 try:
-                    json_data = json.loads(feature.fieldNameIndex(att))
+                    json_data = json.loads(feature[att])
                 except json.JSONDecodeError as e:
                     attributes.append(['json_error',
                                        layer_name,
                                        feature.id(),
                                        att,
-                                      'json invalide : '.format(values),
+                                      'json invalide : {}'.format(feature[att]),
                                        feature.geometry().centroid()])
     if attributes != []:
         controlpoint_layer = ControlPointLayer('json_check')

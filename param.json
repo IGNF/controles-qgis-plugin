@@ -12,5 +12,7 @@
 	{"emprise_gcvs":
 		{"not_null": ["ok"],
 		"size_5":  ["cafait5+++", "5"]}
-	}
+	},
+"attribute_json_check":
+	{"controle_lineaire":  ["json"]}
 }
