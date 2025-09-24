@@ -53,6 +53,8 @@ def micro_object(layers_names, param_json):
     """
     micro_object = []
     for layer_name in layers_names:
+        if layer_name not in param_json.keys():
+            continue
         taille_mini = param_json[layer_name]
         layer = QgsProject.instance().mapLayersByName(layer_name)[0]
         if layer.wkbType() == QgsWkbTypes.Polygon or layer.wkbType() == QgsWkbTypes.MultiPolygon:

@@ -10,6 +10,8 @@ def not_null_attribute(layers_names, param_json):
     """
     null_attributes_feature = []
     for layer_name in layers_names:
+        if layer_name not in param_json.keys():
+            continue
         param_layer = param_json[layer_name]
         layer = QgsProject.instance().mapLayersByName(layer_name)[0]
         for feature in layer.getFeatures():
@@ -33,16 +35,20 @@ def attribute_size(layers_names, param_json):
     """
     attributes = []
     for layer_name in layers_names:
+        if layer_name not in param_json.keys():
+            continue
         param_layer = param_json[layer_name]
         layer = QgsProject.instance().mapLayersByName(layer_name)[0]
         for feature in layer.getFeatures():
-            for att, size in param_layer:
-                if feature.fieldNameIndex(att).length() > size:
+            for att, size in param_layer.items():
+                if feature[att]==NULL:
+                    continue
+                if len(feature[att]) > int(size):
                     attributes.append(['attributs_size',
                                        layer_name,
                                        feature.id(),
                                        att,
-                                       'longueur requise : {}'.format(size),
+                                       '{} : taille max {}'.format(feature[att], size),
                                        feature.geometry().centroid()])
     if attributes != []:
         controlpoint_layer = ControlPointLayer('attributes_size')
@@ -56,16 +62,20 @@ def attribute_values(layers_names, param_json):
     """
     attributes = []
     for layer_name in layers_names:
+        if layer_name not in param_json.keys():
+            continue
         param_layer = param_json[layer_name]
         layer = QgsProject.instance().mapLayersByName(layer_name)[0]
         for feature in layer.getFeatures():
-            for att, values in param_layer:
-                if feature.fieldNameIndex(att) not in values:
+            for att, values in param_layer.items():
+                if feature[att] == NULL:
+                    continue
+                if feature[att] not in values:
                     attributes.append(['attributs_values',
                                        layer_name,
                                        feature.id(),
                                        att,
-                                       'valeurs autorisées : '.format(','.join(values)),
+                                       '{} : valeurs autorisées : {} '.format(feature[att], ','.join(values)),
                                        feature.geometry().centroid()])
     if attributes != []:
         controlpoint_layer = ControlPointLayer('attributes_values')

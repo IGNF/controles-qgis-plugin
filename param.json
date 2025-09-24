@@ -3,5 +3,14 @@
 	"controle_lineaire": "30"},
 "not_null_attribute":
 	{"emprise_gcvs": ["not_null"],
-	"controle_lineaire": ["not_null_1","not_null_2"]}
+	"controle_lineaire": ["not_null_1","not_null_2"]},
+"attribute_size":
+	{"emprise_gcvs":
+		{"size_5": "5"}
+	},
+"attribute_values":
+	{"emprise_gcvs":
+		{"not_null": ["ok"],
+		"size_5":  ["cafait5+++", "5"]}
 	}
+}
