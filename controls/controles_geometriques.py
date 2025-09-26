@@ -82,6 +82,40 @@ def micro_object(layers_names, param_json):
         controlpoint_layer.add_features(micro_object)
 
 
+def troncon_isole(layers_names):
+    """
+    :param layers_names: array
+    """
+    isole = []
+    for layer_name in layers_names:
+        layer = QgsProject.instance().mapLayersByName(layer_name)[0]
+        if layer.wkbType() == QgsWkbTypes.LineString or layer.wkbType() == QgsWkbTypes.MultiLineString:
+            n = layer.featureCount()
+            for i in range(n):
+                trouve = False
+                fi = layer.getFeature(i)
+                geomi = fi.geometry()
+                pointsi = [point for point in geomi.vertices()]
+                for j in range(n):
+                    if i!=j:
+                        fj = layer.getFeature(j)
+                        geomj = fj.geometry()
+                        pointsj = [point for point in geomj.vertices()]
+                        print(pointsi)
+                        print(pointsj)
+                        if pointsi[0] == pointsj[0] or pointsi[-1] == pointsj[-1] or \
+                                pointsi[0] == pointsj[-1] or pointsi[-1] == pointsj[0]:
+                            print('trouvé')
+                            trouve = True
+                            break
+                if not trouve:
+                    isole.append(['isole', layer_name, fi.id(), 'geometry', '', fi.geometry().centroid()])
+    if isole != []:
+        controlpoint_layer = ControlPointLayer('isole')
+        controlpoint_layer.add_features(isole)
+
+
+
 
 
 
