@@ -219,6 +219,8 @@ class ControlesBDUniPlugin:
             if num_args == 1:
                 func(layers)
             elif num_args == 2:
+                if functext not in self.param.keys():
+                    self.param[functext] = []
                 func(layers, self.param[functext])
         self.iface.messageBar().clearWidgets()
         self.iface.messageBar().pushMessage("Info", "Controles terminés", level=Qgis.Info, duration=10)
@@ -244,4 +246,5 @@ class ControlesBDUniPlugin:
             try:
                 self.run_controls()
             except Exception as e:
-                return
+                print(e)
+                return e

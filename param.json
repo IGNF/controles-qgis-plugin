@@ -1,6 +1,6 @@
 {"micro_object":
 	{"emprise_gcvs":"15",
-	"controle_lineaire": "30"},
+	"controle_lineaire": "150"},
 "not_null_attribute":
 	{"emprise_gcvs": ["not_null"],
 	"controle_lineaire": ["not_null_1","not_null_2"]},
@@ -14,5 +14,8 @@
 		"size_5":  ["cafait5+++", "5"]}
 	},
 "attribute_json_check":
-	{"controle_lineaire":  ["json"]}
+	{"controle_lineaire":  ["json"]},
+"micro_troncon":
+	{"controle_lineaire": "50",
+	"emprise_gcvs":"50"}
 }

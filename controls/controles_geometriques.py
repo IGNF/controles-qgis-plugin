@@ -1,4 +1,4 @@
-from qgis.core import QgsProject, QgsWkbTypes
+from qgis.core import QgsProject, QgsWkbTypes, QgsGeometry, QgsDistanceArea, QgsCoordinateTransformContext
 from ..ControlPointLayer import ControlPointLayer
 
 
@@ -101,11 +101,8 @@ def troncon_isole(layers_names):
                         fj = layer.getFeature(j)
                         geomj = fj.geometry()
                         pointsj = [point for point in geomj.vertices()]
-                        print(pointsi)
-                        print(pointsj)
                         if pointsi[0] == pointsj[0] or pointsi[-1] == pointsj[-1] or \
                                 pointsi[0] == pointsj[-1] or pointsi[-1] == pointsj[0]:
-                            print('trouvé')
                             trouve = True
                             break
                 if not trouve:
@@ -114,6 +111,47 @@ def troncon_isole(layers_names):
         controlpoint_layer = ControlPointLayer('isole')
         controlpoint_layer.add_features(isole)
 
+
+def micro_troncon(layers_names, param_json):
+    """
+    :param layers_names: array
+    :param param_json: json
+    """
+    micro_troncon = []
+    for layer_name in layers_names:
+        if layer_name not in param_json.keys():
+            continue
+        taille_mini = param_json[layer_name]
+        layer = QgsProject.instance().mapLayersByName(layer_name)[0]
+        distance = QgsDistanceArea()
+        distance.setSourceCrs(layer.crs(), QgsCoordinateTransformContext())
+        for f in layer.getFeatures():
+            if f.geometry().isGeosValid():
+                if layer.wkbType() == QgsWkbTypes.MultiLineString:
+                    geom = f.geometry().asMultiPolyline()
+                    geom = geom[0]
+                elif layer.wkbType() == QgsWkbTypes.LineString:
+                    geom = f.geometry().asPolyline()
+                elif layer.wkbType() == QgsWkbTypes.Polygon:
+                    geom = f.geometry().asPolygon()
+                elif layer.wkbType() == QgsWkbTypes.MultiPolygon:
+                    geom = f.geometry().asMultiPolygon()
+                    geom = geom[0][0]
+                else:
+                    continue
+                for i in range(len(geom)-1):
+                    segment = QgsGeometry.fromPolylineXY([geom[i], geom[i + 1]])
+                    print(segment.length())
+                    if segment.length() < int(taille_mini):
+                        micro_troncon.append(['micro_troncon',
+                                             layer_name,
+                                             f.id(),
+                                             'geometry',
+                                             'troncon inferieur à {} m'.format(taille_mini),
+                                             f.geometry().centroid()])
+    if micro_troncon != []:
+        controlpoint_layer = ControlPointLayer('micro_troncon')
+        controlpoint_layer.add_features(micro_troncon)
 
 
 
