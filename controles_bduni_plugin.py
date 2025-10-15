@@ -223,7 +223,6 @@ class ControlesBDUniPlugin:
                 if functext not in self.param.keys():
                     self.param[functext] = []
                 n = func(layers, self.param[functext])
-                self.iface.messageBar().clearWidgets()
                 self.iface.messageBar().pushMessage("Info",
                                                     "Controle {} : {} anomalies ".format(control.text(), n),
                                                     level=Qgis.Info, duration=10)
@@ -244,11 +243,10 @@ class ControlesBDUniPlugin:
         result = self.dlg.exec_()
         # See if OK was pressed
         if result:
-            # Do something useful here - delete the line containing pass and
-            # substitute with your code.
             try:
                 self.run_controls()
             except Exception as e:
                 logging.basicConfig(level=logging.DEBUG, filename=self.plugin_dir + '/controls.log')
                 logging.debug(e)
+                self.iface.messageBar().pushMessage("Warning", str(e), level=Qgis.Warning)
                 print(e)

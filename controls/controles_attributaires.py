@@ -11,7 +11,7 @@ def not_null_attribute(layers_names, param_json):
     null_attributes_feature = []
     for layer_name in layers_names:
         if layer_name not in param_json.keys():
-            continue
+            raise Exception('{} not in param.json'.format(layer_name))
         param_layer = param_json[layer_name]
         layer = QgsProject.instance().mapLayersByName(layer_name)[0]
         for feature in layer.getFeatures():
@@ -37,7 +37,7 @@ def attribute_size(layers_names, param_json):
     attributes = []
     for layer_name in layers_names:
         if layer_name not in param_json.keys():
-            continue
+            raise Exception('{} not in param.json'.format(layer_name))
         param_layer = param_json[layer_name]
         layer = QgsProject.instance().mapLayersByName(layer_name)[0]
         for feature in layer.getFeatures():
@@ -65,7 +65,7 @@ def attribute_values(layers_names, param_json):
     attributes = []
     for layer_name in layers_names:
         if layer_name not in param_json.keys():
-            continue
+            raise Exception('{} not in param.json'.format(layer_name))
         param_layer = param_json[layer_name]
         layer = QgsProject.instance().mapLayersByName(layer_name)[0]
         for feature in layer.getFeatures():
@@ -93,7 +93,7 @@ def attribute_json_check(layers_names, param_json):
     attributes = []
     for layer_name in layers_names:
         if layer_name not in param_json.keys():
-            continue
+            raise Exception('{} not in param.json'.format(layer_name))
         param_layer = param_json[layer_name]
         layer = QgsProject.instance().mapLayersByName(layer_name)[0]
         for feature in layer.getFeatures():
