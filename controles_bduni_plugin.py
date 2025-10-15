@@ -34,6 +34,7 @@ from .controles_bduni_plugin_dialog import ControlesBDUniPluginDialog
 import os.path
 import json
 import inspect
+import logging
 
 
 class ControlesBDUniPlugin:
@@ -221,9 +222,11 @@ class ControlesBDUniPlugin:
             elif num_args == 2:
                 if functext not in self.param.keys():
                     self.param[functext] = []
-                func(layers, self.param[functext])
-        self.iface.messageBar().clearWidgets()
-        self.iface.messageBar().pushMessage("Info", "Controles terminés", level=Qgis.Info, duration=10)
+                n = func(layers, self.param[functext])
+                self.iface.messageBar().clearWidgets()
+                self.iface.messageBar().pushMessage("Info",
+                                                    "Controle {} : {} anomalies ".format(control.text(), n),
+                                                    level=Qgis.Info, duration=10)
 
 
     def run(self):
@@ -246,5 +249,6 @@ class ControlesBDUniPlugin:
             try:
                 self.run_controls()
             except Exception as e:
+                logging.basicConfig(level=logging.DEBUG, filename=self.plugin_dir + '/controls.log')
+                logging.debug(e)
                 print(e)
-                return e

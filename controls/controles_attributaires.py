@@ -26,6 +26,7 @@ def not_null_attribute(layers_names, param_json):
     if null_attributes_feature != []:
         controlpoint_layer = ControlPointLayer('attributs_not_null')
         controlpoint_layer.add_features(null_attributes_feature)
+    return len(null_attributes_feature)
 
 
 def attribute_size(layers_names, param_json):
@@ -53,6 +54,7 @@ def attribute_size(layers_names, param_json):
     if attributes != []:
         controlpoint_layer = ControlPointLayer('attributes_size')
         controlpoint_layer.add_features(attributes)
+    return len(attributes)
 
 
 def attribute_values(layers_names, param_json):
@@ -80,6 +82,7 @@ def attribute_values(layers_names, param_json):
     if attributes != []:
         controlpoint_layer = ControlPointLayer('attributes_values')
         controlpoint_layer.add_features(attributes)
+    return len(attributes)
 
 
 def attribute_json_check(layers_names, param_json):
@@ -109,4 +112,5 @@ def attribute_json_check(layers_names, param_json):
     if attributes != []:
         controlpoint_layer = ControlPointLayer('json_check')
         controlpoint_layer.add_features(attributes)
+    return len(attributes)
 

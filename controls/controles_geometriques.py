@@ -24,6 +24,7 @@ def doublon_geometrique(layers_names):
     if doublons != []:
         controlpoint_layer = ControlPointLayer('doublon')
         controlpoint_layer.add_features(doublons)
+    return len(doublons)
 
 
 def valid_geometry(layers_names):
@@ -44,6 +45,7 @@ def valid_geometry(layers_names):
     if geom_not_valid!=[]:
         controlpoint_layer = ControlPointLayer('valid_geometry')
         controlpoint_layer.add_features(geom_not_valid)
+    return len(geom_not_valid)
 
 
 def micro_object(layers_names, param_json):
@@ -80,6 +82,7 @@ def micro_object(layers_names, param_json):
     if micro_object != []:
         controlpoint_layer = ControlPointLayer('micro_object')
         controlpoint_layer.add_features(micro_object)
+    return len(micro_object)
 
 
 def troncon_isole(layers_names):
@@ -110,6 +113,7 @@ def troncon_isole(layers_names):
     if isole != []:
         controlpoint_layer = ControlPointLayer('isole')
         controlpoint_layer.add_features(isole)
+    return len(isole)
 
 
 def micro_troncon(layers_names, param_json):
@@ -123,8 +127,6 @@ def micro_troncon(layers_names, param_json):
             continue
         taille_mini = param_json[layer_name]
         layer = QgsProject.instance().mapLayersByName(layer_name)[0]
-        distance = QgsDistanceArea()
-        distance.setSourceCrs(layer.crs(), QgsCoordinateTransformContext())
         for f in layer.getFeatures():
             if f.geometry().isGeosValid():
                 if layer.wkbType() == QgsWkbTypes.MultiLineString:
@@ -141,7 +143,6 @@ def micro_troncon(layers_names, param_json):
                     continue
                 for i in range(len(geom)-1):
                     segment = QgsGeometry.fromPolylineXY([geom[i], geom[i + 1]])
-                    print(segment.length())
                     if segment.length() < int(taille_mini):
                         micro_troncon.append(['micro_troncon',
                                              layer_name,
@@ -152,6 +153,7 @@ def micro_troncon(layers_names, param_json):
     if micro_troncon != []:
         controlpoint_layer = ControlPointLayer('micro_troncon')
         controlpoint_layer.add_features(micro_troncon)
+    return len(micro_troncon)
 
 
 
