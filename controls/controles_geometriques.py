@@ -59,7 +59,7 @@ def micro_object(layers_names, param_json):
             raise Exception('{} not in param.json'.format(layer_name))
         taille_mini = param_json[layer_name]
         layer = QgsProject.instance().mapLayersByName(layer_name)[0]
-        if layer.wkbType() == QgsWkbTypes.Polygon or layer.wkbType() == QgsWkbTypes.MultiPolygon:
+        if QgsWkbTypes.geometryType(layer.wkbType()) == QgsWkbTypes.PolygonGeometry:
             for f in layer.getFeatures():
                 if f.geometry().isGeosValid():
                     if f.geometry().area() < int(taille_mini):
@@ -69,7 +69,7 @@ def micro_object(layers_names, param_json):
                                                'geometry',
                                                'aire inferieure à {} m2'.format(taille_mini),
                                                f.geometry().centroid()])
-        elif layer.wkbType() == QgsWkbTypes.LineString or layer.wkbType() == QgsWkbTypes.MultiLineString:
+        elif QgsWkbTypes.geometryType(layer.wkbType()) == QgsWkbTypes.LineGeometry:
             for f in layer.getFeatures():
                 if f.geometry().isGeosValid():
                     if f.geometry().length() < int(taille_mini):
@@ -94,7 +94,7 @@ def troncon_isole(layers_names):
     isole = []
     for layer_name in layers_names:
         layer = QgsProject.instance().mapLayersByName(layer_name)[0]
-        if not(layer.wkbType() == QgsWkbTypes.LineString or layer.wkbType() == QgsWkbTypes.MultiLineString):
+        if QgsWkbTypes.geometryType(layer.wkbType()) != QgsWkbTypes.LineGeometry:
             raise Exception('{} wrong geometry type'.format(layer_name))
         n = layer.featureCount()
         for i in range(n):
@@ -132,10 +132,10 @@ def micro_troncon(layers_names, param_json):
         layer = QgsProject.instance().mapLayersByName(layer_name)[0]
         for f in layer.getFeatures():
             if f.geometry().isGeosValid():
-                if layer.wkbType() == QgsWkbTypes.MultiLineString:
+                if QgsWkbTypes.geometryType(layer.wkbType()) == QgsWkbTypes.LineGeometry and QgsWkbTypes.isMultiType(layer.wkbType()):
                     geom = f.geometry().asMultiPolyline()
                     geom = geom[0]
-                elif layer.wkbType() == QgsWkbTypes.LineString:
+                elif QgsWkbTypes.geometryType(layer.wkbType()) == QgsWkbTypes.LineGeometry and QgsWkbTypes.isSingleType(layer.wkbType()):
                     geom = f.geometry().asPolyline()
                 elif layer.wkbType() == QgsWkbTypes.Polygon:
                     geom = f.geometry().asPolygon()
