@@ -132,14 +132,18 @@ def micro_troncon(layers_names, param_json):
         layer = QgsProject.instance().mapLayersByName(layer_name)[0]
         for f in layer.getFeatures():
             if f.geometry().isGeosValid():
-                if QgsWkbTypes.geometryType(layer.wkbType()) == QgsWkbTypes.LineGeometry and QgsWkbTypes.isMultiType(layer.wkbType()):
+                if (QgsWkbTypes.geometryType(layer.wkbType()) == QgsWkbTypes.LineGeometry
+                        and QgsWkbTypes.isMultiType(layer.wkbType())):
                     geom = f.geometry().asMultiPolyline()
                     geom = geom[0]
-                elif QgsWkbTypes.geometryType(layer.wkbType()) == QgsWkbTypes.LineGeometry and QgsWkbTypes.isSingleType(layer.wkbType()):
+                elif (QgsWkbTypes.geometryType(layer.wkbType()) == QgsWkbTypes.LineGeometry
+                      and QgsWkbTypes.isSingleType(layer.wkbType())):
                     geom = f.geometry().asPolyline()
-                elif layer.wkbType() == QgsWkbTypes.Polygon:
+                elif (QgsWkbTypes.geometryType(layer.wkbType()) == QgsWkbTypes.PolygonGeometry
+                      and QgsWkbTypes.isSingleType(layer.wkbType())):
                     geom = f.geometry().asPolygon()
-                elif layer.wkbType() == QgsWkbTypes.MultiPolygon:
+                elif (QgsWkbTypes.geometryType(layer.wkbType()) == QgsWkbTypes.PolygonGeometry
+                      and QgsWkbTypes.isMultiType(layer.wkbType())):
                     geom = f.geometry().asMultiPolygon()
                     geom = geom[0][0]
                 else:
