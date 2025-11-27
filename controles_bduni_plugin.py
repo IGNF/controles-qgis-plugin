@@ -237,6 +237,9 @@ class ControlesBDUniPlugin:
         except JSONDecodeError:
             QMessageBox.critical(None,'Erreur','Json de paramétrage invalide')
             return
+        except FileNotFoundError:
+            QMessageBox.critical(None, 'Erreur', 'Json de paramétrage introuvable')
+            return
 
         self.dlg = ControlesBDUniPluginDialog()
         # show the dialog
