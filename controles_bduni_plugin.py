@@ -25,7 +25,7 @@ from qgis.PyQt.QtCore import QSettings, QTranslator, QCoreApplication
 from qgis import QtCore
 from qgis.core import QgsProject, Qgis
 from qgis.PyQt.QtGui import QIcon
-from qgis.PyQt.QtWidgets import QAction, QListWidget, QListWidgetItem
+from qgis.PyQt.QtWidgets import QAction, QListWidget, QListWidgetItem, QMessageBox
 
 # Initialize Qt resources from file resources.py
 from .controls import controles_attributaires, controles_geometriques
@@ -33,6 +33,7 @@ from .controls import controles_attributaires, controles_geometriques
 from .controles_bduni_plugin_dialog import ControlesBDUniPluginDialog
 import os.path
 import json
+from json.decoder import JSONDecodeError
 import inspect
 
 
@@ -53,8 +54,6 @@ class ControlesBDUniPlugin:
 
         # initialize plugin directory
         self.plugin_dir = os.path.dirname(__file__)
-        with open(self.plugin_dir+'\param.json', 'r') as file:
-            self.param = json.load(file)
 
         # initialize locale
         locale = QSettings().value('locale/userLocale')[0:2]
@@ -231,6 +230,16 @@ class ControlesBDUniPlugin:
         # Only create GUI ONCE in callback, so that it will only load when the plugin is started
         if self.first_start == True:
             self.first_start = False
+
+        try:
+            with open(self.plugin_dir+'\param.json', 'r') as file:
+                self.param = json.load(file)
+        except JSONDecodeError:
+            QMessageBox.critical(None,'Erreur','Json de paramétrage invalide')
+            return
+        except FileNotFoundError:
+            QMessageBox.critical(None, 'Erreur', 'Json de paramétrage introuvable')
+            return
 
         self.dlg = ControlesBDUniPluginDialog()
         # show the dialog
