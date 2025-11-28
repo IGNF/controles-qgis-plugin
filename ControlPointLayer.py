@@ -1,5 +1,7 @@
-from qgis.core import QgsVectorLayer, QgsField, QgsProject, edit, QgsFeature
+from qgis.core import QgsVectorLayer, QgsField, QgsProject, edit, QgsFeature, QgsVectorFileWriter
 from qgis.PyQt.QtCore import QVariant
+import os
+import processing
 
 class ControlPointLayer(QgsVectorLayer):
 
@@ -12,7 +14,7 @@ class ControlPointLayer(QgsVectorLayer):
                                 QgsField("attribut", QVariant.String),
                                 QgsField("commentaire", QVariant.String)])
         self.updateFields()
-        QgsProject.instance().addMapLayer(self)
+        self.save()
 
 
     def add_features(self,features_array):
@@ -24,3 +26,14 @@ class ControlPointLayer(QgsVectorLayer):
             controlpoint.setGeometry(f[-1])
             controlpoint.setAttributes(f[:-1])
             self.provider.addFeature(controlpoint)
+
+
+    def save(self):
+        print(os.path.dirname(QgsProject.instance().fileName())+'/'+self.name())
+        params = {'INPUT': self,
+                  'OUTPUT': os.path.dirname(QgsProject.instance().fileName())+'/'+self.name()+'.gpkg',
+                  'LAYER_NAME': self.name()}
+        processing.run("native:savefeatures", params)
+        layer_path = os.path.dirname(QgsProject.instance().fileName())+'/'+self.name()+'.gpkg'
+        layer = QgsVectorLayer(layer_path+'|layername='+self.name(), self.name(), "ogr")
+        QgsProject.instance().addMapLayer(layer)
