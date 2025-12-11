@@ -35,6 +35,7 @@ import os.path
 import json
 from json.decoder import JSONDecodeError
 import inspect
+import logging
 
 
 class ControlesBDUniPlugin:
@@ -218,9 +219,12 @@ class ControlesBDUniPlugin:
             if num_args == 1:
                 func(layers)
             elif num_args == 2:
-                func(layers, self.param[functext])
-        self.iface.messageBar().clearWidgets()
-        self.iface.messageBar().pushMessage("Info", "Controles terminés", level=Qgis.Info, duration=10)
+                if functext not in self.param.keys():
+                    self.param[functext] = []
+                n = func(layers, self.param[functext])
+                self.iface.messageBar().pushMessage("Info",
+                                                    "Controle {} : {} anomalies ".format(control.text(), n),
+                                                    level=Qgis.Info, duration=10)
 
 
     def run(self):
@@ -248,9 +252,10 @@ class ControlesBDUniPlugin:
         result = self.dlg.exec_()
         # See if OK was pressed
         if result:
-            # Do something useful here - delete the line containing pass and
-            # substitute with your code.
             try:
                 self.run_controls()
             except Exception as e:
-                return
+                logging.basicConfig(level=logging.DEBUG, filename=self.plugin_dir + '/controls.log')
+                logging.debug(e)
+                self.iface.messageBar().pushMessage("Warning", str(e), level=Qgis.Warning)
+                print(e)
