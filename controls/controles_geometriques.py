@@ -119,12 +119,12 @@ def troncon_isole(layers_names):
     return len(isole)
 
 
-def micro_troncon(layers_names, param_json):
+def micro_segment(layers_names, param_json):
     """
     :param layers_names: array
     :param param_json: json
     """
-    micro_troncon = []
+    micro_segment = []
     for layer_name in layers_names:
         if layer_name not in param_json.keys():
             raise Exception('{} not in param.json'.format(layer_name))
@@ -151,16 +151,16 @@ def micro_troncon(layers_names, param_json):
                 for i in range(len(geom)-1):
                     segment = QgsGeometry.fromPolylineXY([geom[i], geom[i + 1]])
                     if segment.length() < int(taille_mini):
-                        micro_troncon.append(['micro_troncon',
+                        micro_segment.append(['micro_segment',
                                              layer_name,
                                              f.id(),
                                              'geometry',
-                                             'troncon inferieur à {} m'.format(taille_mini),
+                                             'segment inferieur à {} m'.format(taille_mini),
                                              f.geometry().centroid()])
-    if micro_troncon != []:
-        controlpoint_layer = ControlPointLayer('micro_troncon')
-        controlpoint_layer.add_features(micro_troncon)
-    return len(micro_troncon)
+    if micro_segment != []:
+        controlpoint_layer = ControlPointLayer('micro_segment')
+        controlpoint_layer.add_features(micro_segment)
+    return len(micro_segment)
 
 
 

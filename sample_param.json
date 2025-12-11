@@ -17,7 +17,7 @@
 "attribute_json_check":
 	{"layer_1": ["attribute_1"],
 	"layer_2": ["attribute_2","attribute_3"]},
-"micro_troncon":
+"micro_segment":
 	{"layer_1": "taille_1",
 	"layer_2": "taille_2"}
 }
