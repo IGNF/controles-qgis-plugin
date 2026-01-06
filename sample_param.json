@@ -1,0 +1,23 @@
+{"micro_object":
+	{"layer_1":"taille_1",
+	"layer_2": "taille_2"},
+"not_null_attribute":
+	{"layer_1": ["attribute_1"],
+	"layer_2": ["attribute_2","attribute_3"]},
+"attribute_size":
+	{"layer_1":
+		{"attribute_1": "taille_1",
+		"attribute_2":"taille_2"}
+	},
+"attribute_values":
+	{"layer_1":
+		{"attribute_1": ["value_1"],
+		"attribute_2":  ["value_2", "value_3"]}
+	},
+"attribute_json_check":
+	{"layer_1": ["attribute_1"],
+	"layer_2": ["attribute_2","attribute_3"]},
+"micro_segment":
+	{"layer_1": "taille_1",
+	"layer_2": "taille_2"}
+}
