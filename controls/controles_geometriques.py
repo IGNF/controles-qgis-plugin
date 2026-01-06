@@ -1,5 +1,6 @@
 from qgis.core import QgsProject, QgsWkbTypes, QgsGeometryValidator
 from ..ControlPointLayer import ControlPointLayer
+from qgis import processing
 
 
 def doublon_geometrique(layers_names):
@@ -32,21 +33,30 @@ def valid_geometry(layers_names):
     """
     geom_not_valid = []
     for layer_name in layers_names:
-        layer = QgsProject.instance().mapLayersByName(layer_name)[0]
-        for f in layer.getFeatures():
-            validator = QgsGeometryValidator(f.geometry())
-            error = validator.validateGeometry(f.geometry())
-            if error:
-                #print(f.geometry().validateGeometry().where())
-                geom_not_valid.append(['valid_geometry',
-                                       layer_name,
-                                       f.id(),
-                                       'geometry',
-                                       'geometrie invalide',
-                                       f.geometry().centroid()])
+        result = processing.run(
+            "qgis:checkvalidity",
+            {
+                'INPUT_LAYER': '{}'.format(layer_name),
+                'METHOD': 2,
+                'IGNORE_RING_SELF_INTERSECTION': False,
+                'VALID_OUTPUT': 'memory:valid_features',
+                'INVALID_OUTPUT': 'memory:invalid_features',
+                'ERROR_OUTPUT': 'memory:error_points'
+            }
+        )
+        for f in result['INVALID_OUTPUT'].getFeatures():
+            for p in result['ERROR_OUTPUT'].getFeatures():
+                if f.geometry().intersects(p.geometry()):
+                    geom_not_valid.append(['valid_geometry',
+                                           layer_name,
+                                           f.id(),
+                                           'geometry',
+                                           'geometrie invalide',
+                                           p.geometry()])
     if geom_not_valid!=[]:
         controlpoint_layer = ControlPointLayer('valid_geometry')
         controlpoint_layer.add_features(geom_not_valid)
+        controlpoint_layer.save()
 
 
 def micro_object(layers_names, param_json):
@@ -83,6 +93,7 @@ def micro_object(layers_names, param_json):
     if micro_object != []:
         controlpoint_layer = ControlPointLayer('micro_object')
         controlpoint_layer.add_features(micro_object)
+        controlpoint_layer.save()
 
 
 def troncon_isole(layers_names):
@@ -104,11 +115,8 @@ def troncon_isole(layers_names):
                         fj = layer.getFeature(j)
                         geomj = fj.geometry()
                         pointsj = [point for point in geomj.vertices()]
-                        print(pointsi)
-                        print(pointsj)
                         if pointsi[0] == pointsj[0] or pointsi[-1] == pointsj[-1] or \
                                 pointsi[0] == pointsj[-1] or pointsi[-1] == pointsj[0]:
-                            print('trouvé')
                             trouve = True
                             break
                 if not trouve:
@@ -116,6 +124,7 @@ def troncon_isole(layers_names):
     if isole != []:
         controlpoint_layer = ControlPointLayer('troncon_isole')
         controlpoint_layer.add_features(isole)
+        controlpoint_layer.save()
 
 
 
