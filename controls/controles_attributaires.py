@@ -17,15 +17,16 @@ def not_null_attribute(layers_names, param_json):
         for feature in layer.getFeatures():
             for attribute in param_layer:
                 if feature[attribute]==NULL:
-                    null_attributes_feature.append(['attributs_not_null',
+                    null_attributes_feature.append(['not_null_attribute',
                                                     layer_name,
                                                     feature.id(),
                                                     attribute,
                                                     '',
                                                     feature.geometry().centroid()])
     if null_attributes_feature != []:
-        controlpoint_layer = ControlPointLayer('attributs_not_null')
+        controlpoint_layer = ControlPointLayer('not_null_attribute')
         controlpoint_layer.add_features(null_attributes_feature)
+        controlpoint_layer.save()
     return len(null_attributes_feature)
 
 
@@ -45,15 +46,16 @@ def attribute_size(layers_names, param_json):
                 if feature[att]==NULL:
                     continue
                 if len(feature[att]) > int(size):
-                    attributes.append(['attributs_size',
+                    attributes.append(['attribute_size',
                                        layer_name,
                                        feature.id(),
                                        att,
                                        '{} : taille max {}'.format(feature[att], size),
                                        feature.geometry().centroid()])
     if attributes != []:
-        controlpoint_layer = ControlPointLayer('attributes_size')
+        controlpoint_layer = ControlPointLayer('attribute_size')
         controlpoint_layer.add_features(attributes)
+        controlpoint_layer.save()
     return len(attributes)
 
 
@@ -73,15 +75,16 @@ def attribute_values(layers_names, param_json):
                 if feature[att] == NULL:
                     continue
                 if feature[att] not in values:
-                    attributes.append(['attributs_values',
+                    attributes.append(['attribute_values',
                                        layer_name,
                                        feature.id(),
                                        att,
                                        '{} : valeurs autorisées : {} '.format(feature[att], ','.join(values)),
                                        feature.geometry().centroid()])
     if attributes != []:
-        controlpoint_layer = ControlPointLayer('attributes_values')
+        controlpoint_layer = ControlPointLayer('attribute_values')
         controlpoint_layer.add_features(attributes)
+        controlpoint_layer.save()
     return len(attributes)
 
 
@@ -110,7 +113,37 @@ def attribute_json_check(layers_names, param_json):
                                       'json invalide : {}'.format(feature[att]),
                                        feature.geometry().centroid()])
     if attributes != []:
-        controlpoint_layer = ControlPointLayer('json_check')
+        controlpoint_layer = ControlPointLayer('attribute_json_check')
         controlpoint_layer.add_features(attributes)
+        controlpoint_layer.save()
+    return len(attributes)
+
+
+def attribute_type(layers_names, param_json):
+    """
+    :param layers_names: array
+    :param param_json: {'nom':'type'}
+    """
+    attributes = []
+    for layer_name in layers_names:
+        if layer_name not in param_json.keys():
+            continue
+        param_layer = param_json[layer_name]
+        layer = QgsProject.instance().mapLayersByName(layer_name)[0]
+        for feature in layer.getFeatures():
+            for att, values in param_layer.items():
+                if feature[att] == NULL:
+                    continue
+                if feature[att] not in values:
+                    attributes.append(['attribute_type',
+                                       layer_name,
+                                       feature.id(),
+                                       att,
+                                       '{} : valeurs autorisées : {} '.format(feature[att], ','.join(values)),
+                                       feature.geometry().centroid()])
+    if attributes != []:
+        controlpoint_layer = ControlPointLayer('attribute_type')
+        controlpoint_layer.add_features(attributes)
+        controlpoint_layer.save()
     return len(attributes)
 

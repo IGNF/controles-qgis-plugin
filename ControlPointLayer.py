@@ -1,7 +1,7 @@
 from qgis.core import QgsVectorLayer, QgsField, QgsProject, edit, QgsFeature, QgsVectorFileWriter
 from qgis.PyQt.QtCore import QVariant
 import os
-import processing
+from qgis import processing
 
 class ControlPointLayer(QgsVectorLayer):
 
@@ -14,8 +14,6 @@ class ControlPointLayer(QgsVectorLayer):
                                 QgsField("attribut", QVariant.String),
                                 QgsField("commentaire", QVariant.String)])
         self.updateFields()
-        self.save()
-
 
     def add_features(self,features_array):
         """
