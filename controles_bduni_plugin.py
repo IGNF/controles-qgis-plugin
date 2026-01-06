@@ -35,6 +35,7 @@ import os.path
 import json
 from json.decoder import JSONDecodeError
 import inspect
+from . import utils
 
 
 class ControlesBDUniPlugin:
@@ -208,6 +209,9 @@ class ControlesBDUniPlugin:
             self.iface.messageBar().pushMessage("Erreur", "Aucune couche séléctionnée", level=Qgis.Warning, duration=10)
             raise Exception
         for control in controls:
+            if utils.check_if_exists(control.text().replace(' ','_')):
+                self.iface.messageBar().pushMessage("Info", "{} : controles deja existant".format(control.text()), level=Qgis.Info, duration=10)
+                continue
             functext = control.text().replace(' ','_')
             if hasattr(controles_attributaires, functext) and callable(getattr(controles_attributaires, functext)):
                 func = getattr(controles_attributaires, functext)
@@ -219,7 +223,6 @@ class ControlesBDUniPlugin:
                 func(layers)
             elif num_args == 2:
                 func(layers, self.param[functext])
-        self.iface.messageBar().clearWidgets()
         self.iface.messageBar().pushMessage("Info", "Controles terminés", level=Qgis.Info, duration=10)
 
 

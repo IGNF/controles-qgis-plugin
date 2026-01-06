@@ -1,4 +1,4 @@
-from qgis.core import QgsProject, QgsWkbTypes
+from qgis.core import QgsProject, QgsWkbTypes, QgsGeometryValidator
 from ..ControlPointLayer import ControlPointLayer
 
 
@@ -13,7 +13,7 @@ def doublon_geometrique(layers_names):
         for f in layer.getFeatures():
             geom = f.geometry().asWkt()
             if geom in geom_dict.keys():
-                doublons.append(['doublon',
+                doublons.append(['doublon_geometrique',
                                  layer_name,
                                  geom_dict[geom].id(),
                                  'geometry',
@@ -22,7 +22,7 @@ def doublon_geometrique(layers_names):
             else:
                 geom_dict[geom]=f
     if doublons != []:
-        controlpoint_layer = ControlPointLayer('doublon')
+        controlpoint_layer = ControlPointLayer('doublon_geometrique')
         controlpoint_layer.add_features(doublons)
 
 
@@ -34,7 +34,10 @@ def valid_geometry(layers_names):
     for layer_name in layers_names:
         layer = QgsProject.instance().mapLayersByName(layer_name)[0]
         for f in layer.getFeatures():
-            if not f.geometry().isGeosValid():
+            validator = QgsGeometryValidator(f.geometry())
+            error = validator.validateGeometry(f.geometry())
+            if error:
+                #print(f.geometry().validateGeometry().where())
                 geom_not_valid.append(['valid_geometry',
                                        layer_name,
                                        f.id(),
@@ -109,9 +112,9 @@ def troncon_isole(layers_names):
                             trouve = True
                             break
                 if not trouve:
-                    isole.append(['isole', layer_name, fi.id(), 'geometry', '', fi.geometry().centroid()])
+                    isole.append(['troncon_isole', layer_name, fi.id(), 'geometry', '', fi.geometry().centroid()])
     if isole != []:
-        controlpoint_layer = ControlPointLayer('isole')
+        controlpoint_layer = ControlPointLayer('troncon_isole')
         controlpoint_layer.add_features(isole)
 
 
