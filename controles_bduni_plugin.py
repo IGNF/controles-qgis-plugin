@@ -31,6 +31,7 @@ from qgis.PyQt.QtWidgets import QAction, QListWidget, QListWidgetItem, QMessageB
 from .controls import controles_attributaires, controles_geometriques
 # Import the code for the dialog
 from .controles_bduni_plugin_dialog import ControlesBDUniPluginDialog
+from .controles_bduni_plugin_dialog_param import ControlesBDUniPluginDialogParam
 import os.path
 import json
 from json.decoder import JSONDecodeError
@@ -175,6 +176,12 @@ class ControlesBDUniPlugin:
             callback=self.run,
             parent=self.iface.mainWindow())
 
+        self.add_action(
+            icon_path,
+            text=self.tr(u'Parametrage des controles'),
+            callback=self.run_param,
+            parent=self.iface.mainWindow())
+
         # will be set False in run()
         self.first_start = True
 
@@ -186,6 +193,10 @@ class ControlesBDUniPlugin:
                 self.tr(u'&Controles BDUni Plugin'),
                 action)
             self.iface.removeToolBarIcon(action)
+
+
+    def save_param(self):
+        return
 
 
     def run_controls(self):
@@ -251,6 +262,31 @@ class ControlesBDUniPlugin:
             # Do something useful here - delete the line containing pass and
             # substitute with your code.
             try:
-                self.run_controls()
+                self.dlg.run_controls()
+            except Exception as e:
+                return
+
+
+    def run_param(self):
+        try:
+            with open(self.plugin_dir + '\param.json', 'r') as file:
+                self.param = json.load(file)
+        except JSONDecodeError:
+            QMessageBox.critical(None, 'Erreur', 'Json de paramétrage invalide')
+            return
+        except FileNotFoundError:
+            QMessageBox.critical(None, 'Erreur', 'Json de paramétrage introuvable')
+            return
+        self.dlg_param = ControlesBDUniPluginDialogParam()
+        self.dlg_param.load_json_tree(self.param)
+        self.dlg_param.show()
+        # Run the dialog event loop
+        result = self.dlg_param.exec_()
+        # See if OK was pressed
+        if result:
+            # Do something useful here - delete the line containing pass and
+            # substitute with your code.
+            try:
+                self.save_param()
             except Exception as e:
                 return
