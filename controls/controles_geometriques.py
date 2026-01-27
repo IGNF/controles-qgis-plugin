@@ -175,6 +175,7 @@ def micro_segment(layers_names, param_json):
     if micro_segment != []:
         controlpoint_layer = ControlPointLayer('micro_segment')
         controlpoint_layer.add_features(micro_segment)
+        controlpoint_layer.save()
     return len(micro_segment)
 
 
