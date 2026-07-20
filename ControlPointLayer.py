@@ -12,7 +12,7 @@ class ControlPointLayer(QgsVectorLayer):
                                 QgsField("couche", QVariant.String),
                                 QgsField("id", QVariant.String),
                                 QgsField("attribut", QVariant.String),
-                                QgsField("commentaire", QVariant.String)])
+                                QgsField("Libellé", QVariant.String)])
         self.updateFields()
 
     def add_features(self,features_array):
