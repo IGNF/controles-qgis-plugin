@@ -26,6 +26,8 @@ from qgis import QtCore
 from qgis.core import QgsProject, Qgis, QgsProcessingContext, QgsProcessingFeedback, QgsApplication
 from qgis.PyQt.QtGui import QIcon
 from qgis.PyQt.QtWidgets import QAction, QListWidget, QListWidgetItem, QMessageBox
+import sip
+import gc
 
 
 # Import the code for the dialog
@@ -36,6 +38,9 @@ import json
 from json.decoder import JSONDecodeError
 import logging
 
+
+# Variable globale pour stocker le provider et éviter sa destruction prématurée
+_provider_instance = None
 
 
 class ControlesBDUniPlugin:
@@ -91,6 +96,15 @@ class ControlesBDUniPlugin:
         """
         # noinspection PyTypeChecker,PyArgumentList,PyCallByClass
         return QCoreApplication.translate('ControlesBDUniPlugin', message)
+
+    def _is_provider_deleted(self):
+        """Vérifie si l'objet C++ du provider a été supprimé"""
+        if self.provider is None:
+            return True
+        try:
+            return sip.isdeleted(self.provider)
+        except:
+            return True
 
 
     def add_action(
@@ -181,12 +195,55 @@ class ControlesBDUniPlugin:
         self.first_start = True
 
         # Initialiser et enregistrer le provider de processing
+        self.initProcessing()
+
+    def initProcessing(self):
+        """Initialise le provider de processing"""
+        global _provider_instance
+
+        registry = QgsApplication.processingRegistry()
+
+        # Méthode 1 : Utiliser providerById (plus sûr)
+        existing_by_id = registry.providerById('controles_bduni')
+        if existing_by_id is not None:
+            try:
+                if not sip.isdeleted(existing_by_id):
+                    registry.removeProvider(existing_by_id)
+            except (RuntimeError, TypeError):
+                pass
+
+        # Méthode 2 : Parcourir tous les providers au cas où
+        existing = [p for p in registry.providers() if p.id() == 'controles_bduni']
+        for p in existing:
+            try:
+                if not sip.isdeleted(p):
+                    registry.removeProvider(p)
+            except (RuntimeError, TypeError):
+                pass
+
+        # Réinitialiser les références
+        self.provider = None
+        _provider_instance = None
+
+        # Forcer le nettoyage et laisser le temps à QGIS de stabiliser
+        gc.collect()
+        QgsApplication.processEvents()
+
+        # Petit délai pour que QGIS finisse le nettoyage interne
+        import time
+        time.sleep(0.1)
+
+        # Créer et enregistrer le nouveau provider
         self.provider = ControlesBDUniProvider()
-        QgsApplication.processingRegistry().addProvider(self.provider)
+        _provider_instance = self.provider  # Garder une référence globale
+
+        registry.addProvider(self.provider)
 
 
     def unload(self):
         """Removes the plugin menu item and icon from QGIS GUI."""
+        global _provider_instance
+
         for action in self.actions:
             self.iface.removePluginMenu(
                 self.tr(u'&Controles BDUni Plugin'),
@@ -194,8 +251,32 @@ class ControlesBDUniPlugin:
             self.iface.removeToolBarIcon(action)
 
         # Désenregistrer le provider de processing
-        if self.provider:
-            QgsApplication.processingRegistry().removeProvider(self.provider)
+        registry = QgsApplication.processingRegistry()
+
+        # Méthode 1 : providerById
+        existing_by_id = registry.providerById('controles_bduni')
+        if existing_by_id is not None:
+            try:
+                if not sip.isdeleted(existing_by_id):
+                    registry.removeProvider(existing_by_id)
+            except (RuntimeError, TypeError):
+                pass
+
+        # Méthode 2 : parcourir tous les providers
+        existing = [p for p in registry.providers() if p.id() == 'controles_bduni']
+        for p in existing:
+            try:
+                if not sip.isdeleted(p):
+                    registry.removeProvider(p)
+            except (RuntimeError, TypeError):
+                pass
+
+        # Nettoyer les références
+        self.provider = None
+        _provider_instance = None
+
+        # Forcer le nettoyage
+        gc.collect()
 
 
     def run_controls(self):
@@ -216,6 +297,13 @@ class ControlesBDUniPlugin:
         if not layers:
             self.iface.messageBar().clearWidgets()
             self.iface.messageBar().pushMessage("Erreur", "Aucune couche séléctionnée", level=Qgis.Warning, duration=10)
+            return
+
+        # Vérifier que le provider est valide
+        if self.provider is None or self._is_provider_deleted():
+            self.iface.messageBar().pushMessage("Erreur",
+                                                "Le provider de contrôles n'est pas disponible. Réinitialisez le plugin.",
+                                                level=Qgis.Critical, duration=10)
             return
 
         for control_name in controls:

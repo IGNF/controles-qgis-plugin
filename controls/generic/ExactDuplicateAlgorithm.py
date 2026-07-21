@@ -73,3 +73,27 @@ class ExactDuplicateAlgorithm(QgsProcessingAlgorithm):
             controlpoint_layer.save()
 
         return {'OUTPUT': 'Traitement terminé'}
+
+    def name(self):
+        """Identifiant unique de l'algorithme"""
+        return 'attributes_inconsistency'
+
+    def displayName(self):
+        """Nom affiché de l'algorithme"""
+        return "Incohérence d'attributs"
+
+    def group(self):
+        """Nom du groupe"""
+        return 'Générique'
+
+    def groupId(self):
+        """Identifiant du groupe"""
+        return 'generic'
+
+    def shortHelpString(self):
+        """Description de l'algorithme"""
+        return "Détecte les incohérences entre attributs selon les règles définies dans le fichier JSON"
+
+    def createInstance(self):
+        """Crée une nouvelle instance de l'algorithme"""
+        return ExactDuplicateAlgorithm()

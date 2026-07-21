@@ -24,7 +24,21 @@ class ControlesBDUniProvider(QgsProcessingProvider):
 
     def __init__(self):
         super().__init__()
-        self.algs = []
+        self._loaded = False
+
+    def load(self):
+        """Charge le provider"""
+        self._loaded = True
+        self.refreshAlgorithms()
+        return True
+
+    def unload(self):
+        """Décharge le provider proprement"""
+        self._loaded = False
+
+    def isActive(self):
+        """Vérifie si le provider est actif"""
+        return self._loaded
 
     def id(self):
         """Identifiant unique du provider"""
@@ -36,11 +50,17 @@ class ControlesBDUniProvider(QgsProcessingProvider):
 
     def icon(self):
         """Icône du provider"""
-        return QIcon(os.path.join(os.path.dirname(__file__), 'icon.png'))
+        icon_path = os.path.join(os.path.dirname(__file__), 'icon.png')
+        if os.path.exists(icon_path):
+            return QIcon(icon_path)
+        return QIcon()
 
     def loadAlgorithms(self):
         """Charge tous les algorithmes de contrôle"""
         controls_dir = os.path.join(os.path.dirname(__file__), 'controls')
+
+        if not os.path.isdir(controls_dir):
+            return
 
         # Structure des catégories
         categories = {
@@ -71,13 +91,13 @@ class ControlesBDUniProvider(QgsProcessingProvider):
 
                 try:
                     # Importer le module
-                    module = importlib.import_module(module_path, package='controles_bduni_plugin')
+                    module = importlib.import_module(module_path, package=__package__)
 
                     # Chercher les classes qui héritent de QgsProcessingAlgorithm
                     for name, obj in inspect.getmembers(module, inspect.isclass):
                         if (issubclass(obj, QgsProcessingAlgorithm) and
                             obj is not QgsProcessingAlgorithm and
-                            hasattr(obj, 'processAlgorithm')):
+                            hasattr(obj, 'createInstance')):
                             try:
                                 # Créer une instance de l'algorithme
                                 algo = obj()
@@ -90,10 +110,6 @@ class ControlesBDUniProvider(QgsProcessingProvider):
                 except Exception as e:
                     # Ignorer les erreurs d'import
                     pass
-
-    def unload(self):
-        """Décharge le provider"""
-        pass
 
     def longName(self):
         """Nom long du provider"""
