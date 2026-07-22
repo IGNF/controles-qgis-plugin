@@ -63,23 +63,24 @@ class LinearDuplicateAlgorithm(QgsProcessingAlgorithm):
 
     def name(self):
         """Identifiant unique de l'algorithme"""
-        return 'attributes_inconsistency'
+        return 'A.06'
 
     def displayName(self):
         """Nom affiché de l'algorithme"""
-        return "Incohérence d'attributs"
+        return "Doublons partiels linéaires"
 
     def group(self):
         """Nom du groupe"""
-        return 'Générique'
+        return 'Controles génériques géométriques'
 
     def groupId(self):
         """Identifiant du groupe"""
-        return 'generic'
+        return 'A'
 
     def shortHelpString(self):
         """Description de l'algorithme"""
-        return "Détecte les incohérences entre attributs selon les règles définies dans le fichier JSON"
+        return "Ce contrôle détecte des objets linéaires de même couche ayant une géométrie commune."\
+               "Il ne tient pas compte des attributs et ne détecte pas les superpositions entre objets de couches différentes"
 
     def createInstance(self):
         """Crée une nouvelle instance de l'algorithme"""

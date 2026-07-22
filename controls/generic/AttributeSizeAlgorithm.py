@@ -72,16 +72,21 @@ class AttributeSizeAlgorithm(QgsProcessingAlgorithm):
         return {'OUTPUT': 'Traitement terminé'}
 
     def name(self):
-        return 'attributesize'
+        return 'C.02'
 
     def displayName(self):
-        return 'Vérification taille des attributs'
+        return 'Taille des champs'
 
     def group(self):
-        return 'Contrôles génériques'
+        return 'Controles génériques attributaires'
 
     def groupId(self):
-        return 'generic_controls'
+        return 'C'
 
     def createInstance(self):
         return AttributeSizeAlgorithm()
+
+    def shortHelpString(self):
+        """Description de l'algorithme"""
+        return \
+            "Il vérifie que la longueur des attributs ne dépasse pas la longueur maximum définie pour l'archivage FEIV."

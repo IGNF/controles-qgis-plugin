@@ -76,23 +76,23 @@ class ExactDuplicateAlgorithm(QgsProcessingAlgorithm):
 
     def name(self):
         """Identifiant unique de l'algorithme"""
-        return 'attributes_inconsistency'
+        return 'A.05'
 
     def displayName(self):
         """Nom affiché de l'algorithme"""
-        return "Incohérence d'attributs"
+        return "Doublons parfaits"
 
     def group(self):
         """Nom du groupe"""
-        return 'Générique'
+        return 'controles génériques géométriques'
 
     def groupId(self):
         """Identifiant du groupe"""
-        return 'generic'
+        return 'A'
 
     def shortHelpString(self):
         """Description de l'algorithme"""
-        return "Détecte les incohérences entre attributs selon les règles définies dans le fichier JSON"
+        return "Ce contrôle détecte des objets de même couche ayant exactement les mêmes attributs et la même géométrie"
 
     def createInstance(self):
         """Crée une nouvelle instance de l'algorithme"""

@@ -61,23 +61,25 @@ class FictitiousAttributeAlgorithm(QgsProcessingAlgorithm):
 
     def name(self):
         """Identifiant unique de l'algorithme"""
-        return 'attributes_inconsistency'
+        return 'C.11'
 
     def displayName(self):
         """Nom affiché de l'algorithme"""
-        return "Incohérence d'attributs"
+        return "Enceinte / Fictif"
 
     def group(self):
         """Nom du groupe"""
-        return 'Générique'
+        return 'controles génériques attributaires'
 
     def groupId(self):
         """Identifiant du groupe"""
-        return 'generic'
+        return 'C'
 
     def shortHelpString(self):
         """Description de l'algorithme"""
-        return "Détecte les incohérences entre attributs selon les règles définies dans le fichier JSON"
+        return \
+            "Le but de ce contrôle est de s’assurer que l’attribut Fictif des classes d’objets surfaciques modélisant"\
+            "des enceintes est correctement codé."
 
     def createInstance(self):
         """Crée une nouvelle instance de l'algorithme"""

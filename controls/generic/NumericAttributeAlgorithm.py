@@ -72,23 +72,23 @@ class NumericAttributeAlgorithm(QgsProcessingAlgorithm):
 
     def name(self):
         """Identifiant unique de l'algorithme"""
-        return 'attributes_inconsistency'
+        return 'C.08'
 
     def displayName(self):
         """Nom affiché de l'algorithme"""
-        return "Incohérence d'attributs"
+        return "Attributs numériques"
 
     def group(self):
         """Nom du groupe"""
-        return 'Générique'
+        return 'Controles génériques attributaires'
 
     def groupId(self):
         """Identifiant du groupe"""
-        return 'generic'
+        return 'C'
 
     def shortHelpString(self):
         """Description de l'algorithme"""
-        return "Détecte les incohérences entre attributs selon les règles définies dans le fichier JSON"
+        return "contrôle si l'attribut est entièrement composé de chiffres."
 
     def createInstance(self):
         """Crée une nouvelle instance de l'algorithme"""

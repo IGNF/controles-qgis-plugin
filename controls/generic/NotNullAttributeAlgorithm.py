@@ -70,23 +70,23 @@ class NotNullAttributeAlgorithm(QgsProcessingAlgorithm):
 
     def name(self):
         """Identifiant unique de l'algorithme"""
-        return 'attributes_inconsistency'
+        return 'C.01'
 
     def displayName(self):
         """Nom affiché de l'algorithme"""
-        return "Incohérence d'attributs"
+        return "Attributs vides"
 
     def group(self):
         """Nom du groupe"""
-        return 'Générique'
+        return 'Controles génériques attributaires'
 
     def groupId(self):
         """Identifiant du groupe"""
-        return 'generic'
+        return 'C'
 
     def shortHelpString(self):
         """Description de l'algorithme"""
-        return "Détecte les incohérences entre attributs selon les règles définies dans le fichier JSON"
+        return "Vérifie les attributs qui ne doivent pas être vides"
 
     def createInstance(self):
         """Crée une nouvelle instance de l'algorithme"""

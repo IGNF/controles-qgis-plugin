@@ -21,23 +21,25 @@ class AttributesInconsistencyAlgorithm(QgsProcessingAlgorithm):
 
     def name(self):
         """Identifiant unique de l'algorithme"""
-        return 'attributes_inconsistency'
+        return 'C.03'
 
     def displayName(self):
         """Nom affiché de l'algorithme"""
-        return "Incohérence d'attributs"
+        return "Incohérences entre attributs"
 
     def group(self):
         """Nom du groupe"""
-        return 'Générique'
+        return 'Controles génériques attributaires'
 
     def groupId(self):
         """Identifiant du groupe"""
-        return 'generic'
+        return 'C'
 
     def shortHelpString(self):
         """Description de l'algorithme"""
-        return "Détecte les incohérences entre attributs selon les règles définies dans le fichier JSON"
+        return \
+            "Le contrôle détecte les incohérences entre attributs pour une classe donnée d'après la règle suivante :"\
+            "Si Champ1 <> Valeur1 alors Champ2 = Valeur2."
 
     def createInstance(self):
         """Crée une nouvelle instance de l'algorithme"""

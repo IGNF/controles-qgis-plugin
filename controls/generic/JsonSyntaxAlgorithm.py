@@ -73,23 +73,25 @@ class JsonSyntaxAlgorithm(QgsProcessingAlgorithm):
 
     def name(self):
         """Identifiant unique de l'algorithme"""
-        return 'attributes_inconsistency'
+        return 'C.12'
 
     def displayName(self):
         """Nom affiché de l'algorithme"""
-        return "Incohérence d'attributs"
+        return "Syntaxe des champs JSON"
 
     def group(self):
         """Nom du groupe"""
-        return 'Générique'
+        return 'Controles génériques attributaires'
 
     def groupId(self):
         """Identifiant du groupe"""
-        return 'generic'
+        return 'C'
 
     def shortHelpString(self):
         """Description de l'algorithme"""
-        return "Détecte les incohérences entre attributs selon les règles définies dans le fichier JSON"
+        return \
+            "Le but de ce contrôle est de s’assurer que la syntaxe définie pour les champs de format JSON est respectée."\
+            "Il s’agit de vérifier que les clés et les valeurs de clés sont conformes à ce qui est spécifié."
 
     def createInstance(self):
         """Crée une nouvelle instance de l'algorithme"""

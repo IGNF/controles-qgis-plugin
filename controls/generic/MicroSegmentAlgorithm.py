@@ -92,23 +92,24 @@ class MicroSegmentAlgorithm(QgsProcessingAlgorithm):
 
     def name(self):
         """Identifiant unique de l'algorithme"""
-        return 'attributes_inconsistency'
+        return 'A.03'
 
     def displayName(self):
         """Nom affiché de l'algorithme"""
-        return "Incohérence d'attributs"
+        return "Micro-segments"
 
     def group(self):
         """Nom du groupe"""
-        return 'Générique'
+        return 'Controles génériques géométriques'
 
     def groupId(self):
         """Identifiant du groupe"""
-        return 'generic'
+        return 'A'
 
     def shortHelpString(self):
         """Description de l'algorithme"""
-        return "Détecte les incohérences entre attributs selon les règles définies dans le fichier JSON"
+        return \
+            "Ce contrôle détecte deux points consécutifs non superposés et situés à une distance inférieure ou égale à 10 cm l'un de l'autre ."
 
     def createInstance(self):
         """Crée une nouvelle instance de l'algorithme"""
