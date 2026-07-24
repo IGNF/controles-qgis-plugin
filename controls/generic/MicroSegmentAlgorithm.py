@@ -1,15 +1,11 @@
 from qgis.core import (
-    QgsProcessing,
-    QgsProcessingAlgorithm,
-    QgsProcessingParameterString,
-    QgsProcessingParameterMultipleLayers,
-    QgsProcessingParameterFeatureSource,
-    QgsProcessingParameterFile,
-    QgsProcessingParameterFeatureSink,
-    QgsProject,
-    NULL,
-    QgsWkbTypes,
-    QgsGeometry
+QgsProcessingAlgorithm,
+QgsProcessingParameterMultipleLayers,
+QgsProcessing,
+QgsProcessingParameterFile,
+QgsProcessingParameterFeatureSink,
+QgsWkbTypes,
+QgsGeometry
 )
 from ControlPointLayer import ControlPointLayer
 import json
@@ -21,7 +17,7 @@ class MicroSegmentAlgorithm(QgsProcessingAlgorithm):
     def initAlgorithm(self):
         self.addParameter(
             QgsProcessingParameterMultipleLayers(
-                self.INPUT_LAYERS,
+                'INPUT_LAYERS',
                 "Couches en entrée",
                 layerType=QgsProcessing.TypeVectorLine | QgsProcessing.TypeVectorPolygon
             )
@@ -41,8 +37,8 @@ class MicroSegmentAlgorithm(QgsProcessingAlgorithm):
         )
 
     def processAlgorithm(self, parameters, context, feedback):
-        layers = self.parameterAsLayerList(parameters, self.INPUT_LAYERS, context)
-        json_path = self.parameterAsFile(parameters, self.JSON_FILE, context)
+        layers = self.parameterAsLayerList(parameters, 'INPUT_LAYERS', context)
+        json_path = self.parameterAsFile(parameters, 'PARAM_JSON', context)
 
         with open(json_path, "r", encoding="utf-8") as f:
             param_json = json.load(f)

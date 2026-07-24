@@ -1,14 +1,9 @@
 from qgis.core import (
-    QgsProcessing,
-    QgsProcessingAlgorithm,
-    QgsProcessingParameterString,
-    QgsProcessingParameterMultipleLayers,
-    QgsProcessingParameterFeatureSource,
-    QgsProcessingParameterFile,
-    QgsProcessingParameterFeatureSink,
-    QgsWkbTypes,
-    QgsProject,
-    NULL
+QgsProcessingAlgorithm,
+QgsProcessingParameterMultipleLayers,
+QgsProcessing,
+QgsProcessingParameterFeatureSink,
+QgsWkbTypes
 )
 from ControlPointLayer import ControlPointLayer
 
@@ -19,7 +14,7 @@ class FictitiousAttributeAlgorithm(QgsProcessingAlgorithm):
     def initAlgorithm(self):
         self.addParameter(
             QgsProcessingParameterMultipleLayers(
-                self.INPUT_LAYERS,
+                'INPUT_LAYERS',
                 "Couches en entrée",
                 layerType=QgsProcessing.TypeVectorPolygon
             )
@@ -32,7 +27,7 @@ class FictitiousAttributeAlgorithm(QgsProcessingAlgorithm):
         )
 
     def processAlgorithm(self, parameters, context, feedback):
-        layers = self.parameterAsLayerList(parameters, self.INPUT_LAYERS, context)
+        layers = self.parameterAsLayerList(parameters, 'INPUT_LAYERS', context)
 
         fictif_attribute_feature = []
         for layer in layers:

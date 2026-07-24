@@ -1,13 +1,9 @@
 from qgis.core import (
-    QgsProcessing,
     QgsProcessingAlgorithm,
-    QgsProcessingParameterString,
     QgsProcessingParameterMultipleLayers,
-    QgsProcessingParameterFeatureSource,
+    QgsProcessing,
     QgsProcessingParameterFile,
-    QgsProcessingParameterFeatureSink,
-    QgsProject,
-    NULL
+    QgsProcessingParameterFeatureSink
 )
 
 from ...ControlPointLayer import ControlPointLayer

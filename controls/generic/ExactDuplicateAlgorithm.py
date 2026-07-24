@@ -1,15 +1,9 @@
 from qgis.core import (
-    QgsProcessing,
-    QgsProcessingAlgorithm,
-    QgsProcessingParameterString,
-    QgsProcessingParameterMultipleLayers,
-    QgsProcessingParameterFeatureSource,
-    QgsProcessingParameterFile,
-    QgsProcessingParameterFeatureSink,
-    QgsProject,
-    NULL,
-    QgsWkbTypes,
-    QgsGeometry
+QgsProcessingAlgorithm,
+QgsProcessingParameterMultipleLayers,
+QgsProcessing,
+QgsProcessingParameterFeatureSink,
+QgsWkbTypes
 )
 from ControlPointLayer import ControlPointLayer
 
@@ -20,7 +14,7 @@ class ExactDuplicateAlgorithm(QgsProcessingAlgorithm):
     def initAlgorithm(self):
         self.addParameter(
             QgsProcessingParameterMultipleLayers(
-                self.INPUT_LAYERS,
+                'INPUT_LAYERS',
                 "Couches en entrée",
                 layerType=QgsProcessing.TypeVectorAnyGeometry
             )
@@ -34,7 +28,7 @@ class ExactDuplicateAlgorithm(QgsProcessingAlgorithm):
         )
 
     def processAlgorithm(self, parameters, context):
-        layers = self.parameterAsLayerList(parameters, self.INPUT_LAYERS, context)
+        layers = self.parameterAsLayerList(parameters, 'INPUT_LAYERS', context)
 
         doublons = []
         for layer in layers:

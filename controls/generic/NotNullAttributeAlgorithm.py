@@ -1,13 +1,10 @@
 from qgis.core import (
-    QgsProcessing,
-    QgsProcessingAlgorithm,
-    QgsProcessingParameterString,
-    QgsProcessingParameterMultipleLayers,
-    QgsProcessingParameterFeatureSource,
-    QgsProcessingParameterFile,
-    QgsProcessingParameterFeatureSink,
-    QgsProject,
-    NULL
+QgsProcessingAlgorithm,
+QgsProcessingParameterMultipleLayers,
+QgsProcessing,
+QgsProcessingParameterFile,
+QgsProcessingParameterFeatureSink,
+NULL
 )
 from ControlPointLayer import ControlPointLayer
 import json
@@ -19,7 +16,7 @@ class NotNullAttributeAlgorithm(QgsProcessingAlgorithm):
     def initAlgorithm(self):
         self.addParameter(
             QgsProcessingParameterMultipleLayers(
-                self.INPUT_LAYERS,
+                'INPUT_LAYERS',
                 "Couches en entrée",
                 layerType=QgsProcessing.TypeVectorAnyGeometry
             )
@@ -39,8 +36,8 @@ class NotNullAttributeAlgorithm(QgsProcessingAlgorithm):
         )
 
     def processAlgorithm(self, parameters, context, feedback):
-        layers = self.parameterAsLayerList(parameters, self.INPUT_LAYERS, context)
-        json_path = self.parameterAsFile(parameters, self.JSON_FILE, context)
+        layers = self.parameterAsLayerList(parameters, 'INPUT_LAYERS', context)
+        json_path = self.parameterAsFile(parameters, 'PARAM_JSON', context)
         # param_json : {'couche': ['attribut1', 'attribut2', ...], ...}
 
         with open(json_path, "r", encoding="utf-8") as f:

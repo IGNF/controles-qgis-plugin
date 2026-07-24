@@ -1,23 +1,16 @@
 from qgis.core import (
-    QgsProcessing,
     QgsProcessingAlgorithm,
-    QgsProcessingParameterString,
     QgsProcessingParameterMultipleLayers,
-    QgsProcessingParameterFeatureSource,
+    QgsProcessing,
     QgsProcessingParameterFile,
     QgsProcessingParameterFeatureSink,
-    QgsProject,
-    NULL
+    QgsFeatureRequest
 )
 from ControlPointLayer import ControlPointLayer
 import json
 
 
 class AttributesInconsistencyAlgorithm(QgsProcessingAlgorithm):
-
-    INPUT_LAYERS = 'INPUT_LAYERS'
-    JSON_FILE = 'PARAM_JSON'
-    OUTPUT = 'OUTPUT'
 
     def name(self):
         """Identifiant unique de l'algorithme"""
@@ -48,7 +41,7 @@ class AttributesInconsistencyAlgorithm(QgsProcessingAlgorithm):
     def initAlgorithm(self):
         self.addParameter(
             QgsProcessingParameterMultipleLayers(
-                self.INPUT_LAYERS,
+                'INPUT_LAYERS',
                 "Couches en entrée",
                 layerType=QgsProcessing.TypeVectorAnyGeometry
             )
@@ -68,10 +61,10 @@ class AttributesInconsistencyAlgorithm(QgsProcessingAlgorithm):
         )
 
     def processAlgorithm(self, parameters, context, feedback):
-        layers = self.parameterAsLayerList(parameters, self.INPUT_LAYERS, context)
-        json_path = self.parameterAsFile(parameters, self.JSON_FILE, context)
+        layers = self.parameterAsLayerList(parameters, 'INPUT_LAYERS', context)
+        json_path = self.parameterAsFile(parameters, 'PARAM_JSON', context)
 
-        #param_json : {'couche': [{condition: consequence}, ...], ...}
+        #param_json : {'couche': {condition: consequence}, ...}
         with open(json_path, "r", encoding="utf-8") as f:
             param_json = json.load(f)
 
@@ -80,10 +73,11 @@ class AttributesInconsistencyAlgorithm(QgsProcessingAlgorithm):
             if layer.name() not in param_json.keys():
                 feedback.reportError("{} n'est pas présent dans le fichier json de paramétrage".format(layer.name()))
                 continue
-            for feature in layer.getFeatures():
-                for condition, consequence in param_json[layer.name()]:
-                    # condition et consequence [attributs, operateur, valeur]
-                    if ' '.join(condition) and not ' '.join(consequence):
+            for condition, consequence in param_json[layer.name()]:
+                request = QgsFeatureRequest()
+                request.setFilterExpression(condition)
+                for feature in layer.getFeatures(request):
+                    if not consequence:
                         incoherence_attributes_feature.append(
                             ['Incohérence entre attributs',
                             layer.name(),
