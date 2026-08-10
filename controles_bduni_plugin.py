@@ -23,19 +23,19 @@
 """
 from qgis.PyQt.QtCore import QSettings, QTranslator, QCoreApplication
 from qgis import QtCore
-from qgis.core import QgsProject, Qgis
+from qgis.core import QgsProject, Qgis, QgsProcessingContext, QgsProcessingFeedback, QgsApplication
 from qgis.PyQt.QtGui import QIcon
 from qgis.PyQt.QtWidgets import QAction, QListWidget, QListWidgetItem, QMessageBox
 
-# Initialize Qt resources from file resources.py
-from .controls import controles_attributaires, controles_geometriques
+
 # Import the code for the dialog
 from .controles_bduni_plugin_dialog import ControlesBDUniPluginDialog
+from .processing_provider import ControlesBDUniProvider
 import os.path
 import json
 from json.decoder import JSONDecodeError
-import inspect
 import logging
+
 
 
 class ControlesBDUniPlugin:
@@ -71,6 +71,7 @@ class ControlesBDUniPlugin:
         # Declare instance attributes
         self.actions = []
         self.menu = self.tr(u'&Controles BDUni Plugin')
+        self.provider = None
 
         # Check if plugin was started the first time in current QGIS session
         # Must be set in initGui() to survive plugin reloads
@@ -179,6 +180,10 @@ class ControlesBDUniPlugin:
         # will be set False in run()
         self.first_start = True
 
+        # Initialiser et enregistrer le provider de processing
+        self.provider = ControlesBDUniProvider()
+        QgsApplication.processingRegistry().addProvider(self.provider)
+
 
     def unload(self):
         """Removes the plugin menu item and icon from QGIS GUI."""
@@ -188,6 +193,10 @@ class ControlesBDUniPlugin:
                 action)
             self.iface.removeToolBarIcon(action)
 
+        # Désenregistrer le provider de processing
+        if self.provider:
+            QgsApplication.processingRegistry().removeProvider(self.provider)
+
 
     def run_controls(self):
         controls = []
@@ -195,36 +204,58 @@ class ControlesBDUniPlugin:
         for i in range(self.dlg.controlListWidget.count()):
             control_item = self.dlg.controlListWidget.item(i)
             if control_item.checkState() == QtCore.Qt.Checked:
-                controls.append(control_item)
+                controls.append(control_item.text())
         for j in range(self.dlg.layerListWidget.count()):
             layer_item = self.dlg.layerListWidget.item(j)
             if layer_item.checkState() == QtCore.Qt.Checked:
-                layers.append(layer_item.text())
-        if controls == []:
+                layers.append(QgsProject.instance().mapLayersByName(layer_item.text())[0])
+        if not controls:
             self.iface.messageBar().clearWidgets()
             self.iface.messageBar().pushMessage("Erreur", "Aucun contrôle séléctionné", level=Qgis.Warning, duration=10)
-            raise Exception
-        if layers == []:
+            return
+        if not layers:
             self.iface.messageBar().clearWidgets()
             self.iface.messageBar().pushMessage("Erreur", "Aucune couche séléctionnée", level=Qgis.Warning, duration=10)
-            raise Exception
-        for control in controls:
-            functext = control.text().replace(' ','_')
-            if hasattr(controles_attributaires, functext) and callable(getattr(controles_attributaires, functext)):
-                func = getattr(controles_attributaires, functext)
-            else:
-                func = getattr(controles_geometriques, functext)
-            sig = inspect.signature(func)
-            num_args = len([param for param in sig.parameters.values() if param.default == inspect.Parameter.empty])
-            if num_args == 1:
-                func(layers)
-            elif num_args == 2:
-                if functext not in self.param.keys():
-                    self.param[functext] = []
-                n = func(layers, self.param[functext])
+            return
+
+        for control_name in controls:
+            # Chercher l'algorithme dans le provider
+            algo = None
+            for alg in self.provider.algorithms():
+                if alg.__class__.__name__ == control_name:
+                    algo = alg
+                    break
+
+            if algo is None:
+                self.iface.messageBar().pushMessage("Erreur",
+                                                    f"Contrôle {control_name} introuvable",
+                                                    level=Qgis.Warning, duration=10)
+                continue
+
+            try:
+                # Préparer les paramètres
+                params = {
+                    'INPUT_LAYERS': layers,
+                    'PARAM_JSON': os.path.join(self.plugin_dir, 'param.json')
+                }
+
+                # Exécuter l'algorithme
+                context = QgsProcessingContext()
+                feedback = QgsProcessingFeedback()
+
+                result = algo.processAlgorithm(params, context, feedback)
+
                 self.iface.messageBar().pushMessage("Info",
-                                                    "Controle {} : {} anomalies ".format(control.text(), n),
+                                                    f"Contrôle {control_name} : {result.get('OUTPUT', 'terminé')}",
                                                     level=Qgis.Info, duration=10)
+
+            except Exception as e:
+                logging.basicConfig(level=logging.DEBUG,
+                                    filename=os.path.join(self.plugin_dir, 'controls.log'))
+                logging.error(f"Erreur pour {control_name}: {e}")
+                self.iface.messageBar().pushMessage("Erreur",
+                                                    f"Erreur lors de l'exécution de {control_name}: {str(e)}",
+                                                    level=Qgis.Warning, duration=10)
 
 
     def run(self):
