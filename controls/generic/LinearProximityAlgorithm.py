@@ -9,7 +9,7 @@ QgsSpatialIndex
 )
 from ControlPointLayer import ControlPointLayer
 
-class LinearProximity(QgsProcessingAlgorithm):
+class LinearProximityAlgorithm(QgsProcessingAlgorithm):
 
     def initAlgorithm(self):
         self.addParameter(
@@ -113,4 +113,4 @@ class LinearProximity(QgsProcessingAlgorithm):
 
     def createInstance(self):
         """Crée une nouvelle instance de l'algorithme"""
-        return LinearProximity()
+        return LinearProximityAlgorithm()

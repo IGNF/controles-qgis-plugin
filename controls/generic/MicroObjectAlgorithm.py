@@ -1,0 +1,120 @@
+from qgis.core import (
+QgsProcessingAlgorithm,
+QgsProcessingParameterMultipleLayers,
+QgsProcessing,
+QgsProcessingParameterFeatureSink,
+QgsProcessingParameterFile,
+QgsWkbTypes
+)
+from ControlPointLayer import ControlPointLayer
+import json
+
+class MicroObjectAlgorithm(QgsProcessingAlgorithm):
+
+    def initAlgorithm(self):
+        self.addParameter(
+            QgsProcessingParameterMultipleLayers(
+                'INPUT_LAYERS',
+                "Couche de route en entrée",
+                layerType=QgsProcessing.TypeVectorLine|QgsProcessing.TypeVectorPolygon
+            )
+        )
+        self.addParameter(
+            QgsProcessingParameterFile(
+                'PARAM_JSON',
+                'Paramètres JSON',
+                extension='json'
+            )
+        )
+        self.addParameter(
+            QgsProcessingParameterFeatureSink(
+                'OUTPUT',
+                'Sortie'
+            )
+        )
+
+    def processAlgorithm(self, parameters, context, feedback):
+        layers = self.parameterAsLayerList(parameters, 'INPUT_LAYERS', context)
+        param_file = self.parameterAsFile(parameters, 'PARAM_JSON', context)
+
+        # Charger les seuils depuis le JSON
+        with open(param_file, 'r', encoding='utf-8') as f:
+            thresholds = json.load(f)
+
+        micro_objects = []
+        for layer in layers:
+            if layer.geometryType() not in [QgsWkbTypes.LineGeometry, QgsWkbTypes.PolygonGeometry]:
+                feedback.pushWarning(f"La couche {layer.name()} n'est ni linéaire ni surfacique, elle sera ignorée")
+                continue
+
+            threshold = thresholds.get(layer.name())
+            if threshold is None:
+                feedback.pushWarning(f"Aucun seuil défini pour la couche {layer.name()}")
+                continue
+
+            for feature in layer.getFeatures():
+                comment = ''
+                geom = feature.geometry()
+
+                if geom.isEmpty() or not geom.isGeosValid():
+                    continue
+
+                is_micro = False
+
+                # Vérification pour les objets linéaires
+                if layer.geometryType() == QgsWkbTypes.LineGeometry:
+                    length = geom.length()
+                    if length <= threshold:
+                        is_micro = True
+                        comment = 'Objet de longueur <= {}m'.format(length)
+
+                # Vérification pour les objets surfaciques
+                elif layer.geometryType() == QgsWkbTypes.PolygonGeometry:
+                    area = geom.area()
+                    if area <= threshold:
+                        is_micro = True
+                        comment = 'Objet de surface <= {}m²'.format(area)
+
+                if is_micro:
+                    micro_objects.append([
+                        'Micro-objet',
+                        layer.name(),
+                        feature.id(),
+                        'geometrie',
+                        comment,
+                        geom.centroid()
+                    ])
+
+        if micro_objects:
+            controlpoint_layer = ControlPointLayer('Micro-objets')
+            controlpoint_layer.add_features(micro_objects)
+            controlpoint_layer.save()
+
+        return {'OUTPUT': 'Traitement terminé'}
+
+    def name(self):
+        """Identifiant unique de l'algorithme"""
+        return 'A.15'
+
+    def displayName(self):
+        """Nom affiché de l'algorithme"""
+        return "Micro-objets"
+
+    def group(self):
+        """Nom du groupe"""
+        return 'Controles génériques géométriques'
+
+    def groupId(self):
+        """Identifiant du groupe"""
+        return 'A'
+
+    def shortHelpString(self):
+        """Description de l'algorithme"""
+        return \
+            "Ce contrôle détecte :"\
+            "Les objets linéaires de longueur ≤ 3 m ou < 2 m pour les Tronçons de route"\
+            "Les objets surfaciques de surface ≤ 9 m2 ou < 0.2 m2 pour les Bâtiments et Réservoirs ou ≤ 2 m2 pour les Constructions surfaciques et Postes de transformation"
+
+    def createInstance(self):
+        """Crée une nouvelle instance de l'algorithme"""
+        return MicroObjectAlgorithm()
