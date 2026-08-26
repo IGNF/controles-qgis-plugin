@@ -1,6 +1,6 @@
 from qgis.core import (
 QgsProcessingAlgorithm,
-QgsProcessingParameterMultipleLayers,
+QgsProcessingParameterVectorLayer,
 QgsProcessing,
 QgsProcessingParameterFile,
 QgsProcessingParameterFeatureSink,
@@ -14,13 +14,12 @@ import json
 
 class IsolatedSectionAlgorithm(QgsProcessingAlgorithm):
 
-
-    def initAlgorithm(self):
+    def initAlgorithm(self, config=None):
         self.addParameter(
-            QgsProcessingParameterMultipleLayers(
-                'INPUT_LAYERS',
-                "Couches en entrée",
-                layerType=QgsProcessing.TypeVectorLine
+            QgsProcessingParameterVectorLayer(
+                'INPUT_LAYER',
+                "Couche en entrée",
+                types=[QgsProcessing.TypeVectorLine]
             )
         )
         self.addParameter(
@@ -38,7 +37,7 @@ class IsolatedSectionAlgorithm(QgsProcessingAlgorithm):
         )
 
     def processAlgorithm(self, parameters, context, feedback):
-        layers = self.parameterAsLayerList(parameters, 'INPUT_LAYERS', context)
+        layer = self.parameterAsVectorLayer(parameters, 'INPUT_LAYER', context)
         json_path = self.parameterAsFile(parameters, 'PARAM_JSON', context)
 
         with open(json_path, "r", encoding="utf-8") as f:
@@ -46,68 +45,53 @@ class IsolatedSectionAlgorithm(QgsProcessingAlgorithm):
 
         isolated_sections = []
 
-        for layer in layers:
-            if layer.name() not in param_json.keys():
-                feedback.reportError('{} not in param.json'.format(layer.name()))
+        if layer.name() not in param_json.keys():
+            feedback.reportError('{} not in param.json'.format(layer.name()))
+            return {'OUTPUT': 'Traitement terminé'}
+
+        geom_type = QgsWkbTypes.geometryType(layer.wkbType())
+        if geom_type != QgsWkbTypes.LineGeometry:
+            feedback.reportError(f"{layer.name()} n'est pas linéaire")
+            return {'OUTPUT': 'Traitement terminé'}
+
+        filter_condition = param_json[layer.name()]
+
+        spatial_index = QgsSpatialIndex()
+        features_dict = {}
+
+        request = QgsFeatureRequest()
+        if filter_condition:
+            request.setFilterExpression(filter_condition)
+
+        for f in layer.getFeatures(request):
+            if not f.geometry() or not f.geometry().isGeosValid():
                 continue
+            features_dict[f.id()] = f
+            spatial_index.addFeature(f)
 
-            geom_type = QgsWkbTypes.geometryType(layer.wkbType())
-            if geom_type != QgsWkbTypes.LineGeometry:
-                feedback.reportError(f"{layer.name()} n'est pas linéaire")
-                continue
-
-            # Récupérer la condition de filtrage depuis le JSON
-            filter_condition = param_json[layer.name()]
-
-            # Construire l'index spatial pour les tronçons filtrés
-            spatial_index = QgsSpatialIndex()
-            features_dict = {}
-
-            # Appliquer le filtre depuis le JSON
-            request = QgsFeatureRequest()
-            if filter_condition:
-                request.setFilterExpression(filter_condition)
-
-            for f in layer.getFeatures(request):
-                if not f.geometry() or not f.geometry().isGeosValid():
+        for fid, feature in features_dict.items():
+            geom = feature.geometry()
+            bbox = geom.boundingBox()
+            bbox.grow(0.01)
+            nearby_ids = spatial_index.intersects(bbox)
+            is_isolated = True
+            for nearby_id in nearby_ids:
+                if nearby_id == fid:
                     continue
-
-                features_dict[f.id()] = f
-                spatial_index.addFeature(f)
-
-            # Détecter les tronçons isolés
-            for fid, feature in features_dict.items():
-                geom = feature.geometry()
-
-                # Chercher les tronçons voisins (avec une petite tolérance)
-                bbox = geom.boundingBox()
-                bbox.grow(0.01)  # Tolérance de 1 cm
-
-                nearby_ids = spatial_index.intersects(bbox)
-
-                # Vérifier si le tronçon est connecté à d'autres
-                is_isolated = True
-                for nearby_id in nearby_ids:
-                    if nearby_id == fid:
-                        continue
-
-                    nearby_feature = features_dict[nearby_id]
-                    nearby_geom = nearby_feature.geometry()
-
-                    # Vérifier si les géométries se touchent
-                    if geom.touches(nearby_geom) or geom.intersects(nearby_geom):
-                        is_isolated = False
-                        break
-
-                if is_isolated:
-                    isolated_sections.append([
-                        'Géométrie tronçons isolés',
-                        layer.name(),
-                        feature.id(),
-                        'geometry',
-                        "Ce tronçon est isolé",
-                        geom.centroid()
-                    ])
+                nearby_feature = features_dict[nearby_id]
+                nearby_geom = nearby_feature.geometry()
+                if geom.touches(nearby_geom) or geom.intersects(nearby_geom):
+                    is_isolated = False
+                    break
+            if is_isolated:
+                isolated_sections.append([
+                    'Géométrie tronçons isolés',
+                    layer.name(),
+                    feature.id(),
+                    'geometry',
+                    "Ce tronçon est isolé",
+                    geom.centroid()
+                ])
 
         if isolated_sections:
             controlpoint_layer = ControlPointLayer('Géométrie tronçons isolés')

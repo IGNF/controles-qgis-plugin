@@ -15,7 +15,7 @@ from ControlPointLayer import ControlPointLayer
 
 class ZMaxAltitudeAlgorithm(QgsProcessingAlgorithm):
 
-    def initAlgorithm(self):
+    def initAlgorithm(self, config=None):
         self.addParameter(
             QgsProcessingParameterVectorLayer(
                 'PYLON_LAYER',

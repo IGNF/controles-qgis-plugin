@@ -1,6 +1,6 @@
 from qgis.core import (
 QgsProcessingAlgorithm,
-QgsProcessingParameterMultipleLayers,
+QgsProcessingParameterVectorLayer,
 QgsProcessing,
 QgsProcessingParameterFeatureSink
 )
@@ -8,12 +8,12 @@ from ControlPointLayer import ControlPointLayer
 
 class InvalidGeometryAlgorithm(QgsProcessingAlgorithm):
 
-    def initAlgorithm(self):
+    def initAlgorithm(self, config=None):
         self.addParameter(
-            QgsProcessingParameterMultipleLayers(
-                'INPUT_LAYERS',
-                "Couche de route en entrée",
-                layerType=QgsProcessing.TypeVector
+            QgsProcessingParameterVectorLayer(
+                'INPUT_LAYER',
+                "Couche en entrée",
+                types=[QgsProcessing.TypeVector]
             )
         )
         self.addParameter(
@@ -24,41 +24,38 @@ class InvalidGeometryAlgorithm(QgsProcessingAlgorithm):
         )
 
     def processAlgorithm(self, parameters, context, feedback):
-        layers = self.parameterAsLayerList(parameters, 'INPUT_LAYERS', context)
+        layer = self.parameterAsVectorLayer(parameters, 'INPUT_LAYER', context)
 
         invalid_geometries = []
-        for layer in layers:
-            for feature in layer.getFeatures():
-                geom = feature.geometry()
+        for feature in layer.getFeatures():
+            geom = feature.geometry()
 
-                if geom.isEmpty():
-                    continue
+            if geom.isEmpty():
+                continue
 
-                if not geom.isGeosValid():
-                    error = geom.validateGeometry()
+            if not geom.isGeosValid():
+                error = geom.validateGeometry()
 
-                    if error:
-                        for e in error:
-                            # Utiliser la position de l'erreur si disponible
-                            error_location = e.where() if e.hasWhere() else geom.centroid()
-
-                            invalid_geometries.append([
-                                'Géométrie invalide',
-                                layer.name(),
-                                feature.id(),
-                                'geometrie',
-                                e.what(),
-                                error_location
-                            ])
-                    else:
+                if error:
+                    for e in error:
+                        error_location = e.where() if e.hasWhere() else geom.centroid()
                         invalid_geometries.append([
                             'Géométrie invalide',
                             layer.name(),
                             feature.id(),
                             'geometrie',
-                            'Géométrie invalide',
-                            geom.centroid()
+                            e.what(),
+                            error_location
                         ])
+                else:
+                    invalid_geometries.append([
+                        'Géométrie invalide',
+                        layer.name(),
+                        feature.id(),
+                        'geometrie',
+                        'Géométrie invalide',
+                        geom.centroid()
+                    ])
 
         if invalid_geometries:
             controlpoint_layer = ControlPointLayer('Géométrie invalide')

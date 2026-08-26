@@ -21,9 +21,11 @@
  *                                                                         *
  ***************************************************************************/
 """
-from qgis.PyQt.QtCore import QSettings, QTranslator, QCoreApplication
+from qgis.PyQt.QtCore import QSettings, QTranslator, QCoreApplication, Qt
 from qgis import QtCore
-from qgis.core import QgsProject, Qgis, QgsProcessingContext, QgsProcessingFeedback, QgsApplication
+from qgis.core import (QgsProject, Qgis, QgsProcessingContext, QgsProcessingFeedback,
+                       QgsApplication, QgsProcessingParameterVectorLayer,
+                       QgsProcessingParameterFile)
 from qgis.PyQt.QtGui import QIcon
 from qgis.PyQt.QtWidgets import QAction, QListWidget, QListWidgetItem, QMessageBox
 import sip
@@ -194,50 +196,26 @@ class ControlesBDUniPlugin:
         # will be set False in run()
         self.first_start = True
 
-        # Initialiser et enregistrer le provider de processing
+        # Initialiser et enregistrer le provider de processing via le script
         self.initProcessing()
 
     def initProcessing(self):
-        """Initialise le provider de processing"""
+        """Initialise le provider de processing via le script load_controls_processing"""
         global _provider_instance
+        import importlib.util
 
-        registry = QgsApplication.processingRegistry()
+        script_path = os.path.join(self.plugin_dir, 'scripts', 'load_controls_processing.py')
+        spec = importlib.util.spec_from_file_location('load_controls_processing', script_path)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
 
-        # Méthode 1 : Utiliser providerById (plus sûr)
-        existing_by_id = registry.providerById('controles_bduni')
-        if existing_by_id is not None:
-            try:
-                if not sip.isdeleted(existing_by_id):
-                    registry.removeProvider(existing_by_id)
-            except (RuntimeError, TypeError):
-                pass
+        # Stocker le module pour pouvoir décharger plus tard
+        self._load_controls_module = module
 
-        # Méthode 2 : Parcourir tous les providers au cas où
-        existing = [p for p in registry.providers() if p.id() == 'controles_bduni']
-        for p in existing:
-            try:
-                if not sip.isdeleted(p):
-                    registry.removeProvider(p)
-            except (RuntimeError, TypeError):
-                pass
-
-        # Réinitialiser les références
-        self.provider = None
-        _provider_instance = None
-
-        # Forcer le nettoyage et laisser le temps à QGIS de stabiliser
-        gc.collect()
-        QgsApplication.processEvents()
-
-        # Petit délai pour que QGIS finisse le nettoyage interne
-        import time
-        time.sleep(0.1)
-
-        # Créer et enregistrer le nouveau provider
-        self.provider = ControlesBDUniProvider()
-        _provider_instance = self.provider  # Garder une référence globale
-
-        registry.addProvider(self.provider)
+        provider = module.load_controles_bduni_processing()
+        if provider is not None:
+            self.provider = provider
+            _provider_instance = provider
 
 
     def unload(self):
@@ -250,32 +228,13 @@ class ControlesBDUniPlugin:
                 action)
             self.iface.removeToolBarIcon(action)
 
-        # Désenregistrer le provider de processing
-        registry = QgsApplication.processingRegistry()
-
-        # Méthode 1 : providerById
-        existing_by_id = registry.providerById('controles_bduni')
-        if existing_by_id is not None:
-            try:
-                if not sip.isdeleted(existing_by_id):
-                    registry.removeProvider(existing_by_id)
-            except (RuntimeError, TypeError):
-                pass
-
-        # Méthode 2 : parcourir tous les providers
-        existing = [p for p in registry.providers() if p.id() == 'controles_bduni']
-        for p in existing:
-            try:
-                if not sip.isdeleted(p):
-                    registry.removeProvider(p)
-            except (RuntimeError, TypeError):
-                pass
+        # Désenregistrer le provider via le script
+        if hasattr(self, '_load_controls_module'):
+            self._load_controls_module.unload_controles_bduni_processing()
 
         # Nettoyer les références
         self.provider = None
         _provider_instance = None
-
-        # Forcer le nettoyage
         gc.collect()
 
 
@@ -285,7 +244,7 @@ class ControlesBDUniPlugin:
         for i in range(self.dlg.controlListWidget.count()):
             control_item = self.dlg.controlListWidget.item(i)
             if control_item.checkState() == QtCore.Qt.Checked:
-                controls.append(control_item.text())
+                controls.append(control_item.data(Qt.UserRole))
         for j in range(self.dlg.layerListWidget.count()):
             layer_item = self.dlg.layerListWidget.item(j)
             if layer_item.checkState() == QtCore.Qt.Checked:
@@ -321,21 +280,46 @@ class ControlesBDUniPlugin:
                 continue
 
             try:
-                # Préparer les paramètres
-                params = {
-                    'INPUT_LAYERS': layers,
-                    'PARAM_JSON': os.path.join(self.plugin_dir, 'param.json')
-                }
-
-                # Exécuter l'algorithme
                 context = QgsProcessingContext()
                 feedback = QgsProcessingFeedback()
+                json_path = os.path.join(self.plugin_dir, 'param.json')
 
-                result = algo.processAlgorithm(params, context, feedback)
+                # Introspection des paramètres de l'algorithme
+                param_defs = algo.parameterDefinitions()
+                vector_params = [p for p in param_defs
+                                 if isinstance(p, QgsProcessingParameterVectorLayer)]
+                has_json = any(isinstance(p, QgsProcessingParameterFile) and p.name() == 'PARAM_JSON'
+                               for p in param_defs)
 
-                self.iface.messageBar().pushMessage("Info",
-                                                    f"Contrôle {control_name} : {result.get('OUTPUT', 'terminé')}",
-                                                    level=Qgis.Info, duration=10)
+                result = None
+
+                if len(vector_params) == 1:
+                    # Cas standard : un seul INPUT_LAYER → exécuter pour chaque couche
+                    for layer in layers:
+                        params = {vector_params[0].name(): layer}
+                        if has_json:
+                            params['PARAM_JSON'] = json_path
+                        result = algo.processAlgorithm(params, context, feedback)
+
+                elif len(vector_params) > 1:
+                    # Cas multi-couches : assigner les couches sélectionnées dans l'ordre des paramètres
+                    if len(layers) < len(vector_params):
+                        param_names = ', '.join(p.name() for p in vector_params)
+                        self.iface.messageBar().pushMessage(
+                            "Avertissement",
+                            f"{control_name} nécessite {len(vector_params)} couches ({param_names}),"
+                            f" seulement {len(layers)} sélectionnée(s)",
+                            level=Qgis.Warning, duration=10)
+                        continue
+                    params = {p.name(): layers[i] for i, p in enumerate(vector_params)}
+                    if has_json:
+                        params['PARAM_JSON'] = json_path
+                    result = algo.processAlgorithm(params, context, feedback)
+
+                if result is not None:
+                    self.iface.messageBar().pushMessage("Info",
+                        f"Contrôle {control_name} : {result.get('OUTPUT', 'terminé')}",
+                        level=Qgis.Info, duration=10)
 
             except Exception as e:
                 logging.basicConfig(level=logging.DEBUG,

@@ -1,6 +1,6 @@
 from qgis.core import (
 QgsProcessingAlgorithm,
-QgsProcessingParameterMultipleLayers,
+QgsProcessingParameterVectorLayer,
 QgsProcessing,
 QgsProcessingParameterFeatureSink,
 QgsWkbTypes,
@@ -9,12 +9,12 @@ from ControlPointLayer import ControlPointLayer
 
 class SelfIntersectionAlgorithm(QgsProcessingAlgorithm):
 
-    def initAlgorithm(self):
+    def initAlgorithm(self, config=None):
         self.addParameter(
-            QgsProcessingParameterMultipleLayers(
-                'INPUT_LAYERS',
-                "Couche de route en entrée",
-                layerType=QgsProcessing.TypeVectorLine|QgsProcessing.TypeVectorPolygon
+            QgsProcessingParameterVectorLayer(
+                'INPUT_LAYER',
+                "Couche en entrée",
+                types=[QgsProcessing.TypeVectorAnyGeometry]
             )
         )
         self.addParameter(
@@ -25,31 +25,27 @@ class SelfIntersectionAlgorithm(QgsProcessingAlgorithm):
         )
 
     def processAlgorithm(self, parameters, context, feedback):
-        layers = self.parameterAsLayerList(parameters, 'INPUT_LAYERS', context)
+        layer = self.parameterAsVectorLayer(parameters, 'INPUT_LAYER', context)
 
         self_intersection_issues = []
-        for layer in layers:
-            geom_type = layer.geometryType()
-            if geom_type not in [QgsWkbTypes.LineGeometry, QgsWkbTypes.PolygonGeometry]:
-                feedback.reportError(f"La couche {layer.name()} n'est ni linéaire ni surfacique")
+        geom_type = layer.geometryType()
+        if geom_type not in [QgsWkbTypes.LineGeometry, QgsWkbTypes.PolygonGeometry]:
+            feedback.reportError(f"La couche {layer.name()} n'est ni linéaire ni surfacique")
+            return {'OUTPUT': 'Traitement terminé'}
+
+        for feature in layer.getFeatures():
+            if feature.geometry().isEmpty() or not feature.geometry().isGeosValid():
                 continue
-
-            for feature in layer.getFeatures():
-                if feature.geometry().isEmpty() or not feature.geometry().isGeosValid():
-                    continue
-
-                geom = feature.geometry()
-
-                # Vérifier si la géométrie s'auto-intersecte
-                if not geom.isSimple():
-                    self_intersection_issues.append([
-                        'Auto-intersection',
-                        layer.name(),
-                        feature.id(),
-                        'geometry',
-                        'Objet auto-intersectant',
-                        geom.centroid()
-                    ])
+            geom = feature.geometry()
+            if not geom.isSimple():
+                self_intersection_issues.append([
+                    'Auto-intersection',
+                    layer.name(),
+                    feature.id(),
+                    'geometry',
+                    'Objet auto-intersectant',
+                    geom.centroid()
+                ])
 
         if self_intersection_issues:
             controlpoint_layer = ControlPointLayer('Auto-intersections')

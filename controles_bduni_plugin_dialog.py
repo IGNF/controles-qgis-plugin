@@ -80,6 +80,17 @@ class ControlesBDUniPluginDialog(QDialog, FORM_CLASS):
             item.setCheckState(Qt.Unchecked)
 
 
+    @staticmethod
+    def _get_method_return_str(class_node, method_name):
+        """Extrait la valeur de retour (string) d'une méthode simple via AST."""
+        for node in class_node.body:
+            if isinstance(node, ast.FunctionDef) and node.name == method_name:
+                for stmt in node.body:
+                    if isinstance(stmt, ast.Return) and stmt.value is not None:
+                        if isinstance(stmt.value, ast.Constant) and isinstance(stmt.value.value, str):
+                            return stmt.value.value.strip()
+        return None
+
     def load_controls(self):
         algorithms = []
         directory_path = os.path.dirname(__file__) + '/controls'
@@ -93,15 +104,18 @@ class ControlesBDUniPluginDialog(QDialog, FORM_CLASS):
                             tree = ast.parse(file.read())
                         for node in tree.body:
                             if isinstance(node, ast.ClassDef):
-                                # Vérifie si la classe hérite de QgsProcessingAlgorithm
                                 for base in node.bases:
                                     if isinstance(base, ast.Name) and base.id == 'QgsProcessingAlgorithm':
-                                        algorithms.append(node.name)
+                                        algo_id = self._get_method_return_str(node, 'name') or node.name
+                                        display_name = self._get_method_return_str(node, 'displayName') or node.name
+                                        algorithms.append((node.name, algo_id, display_name))
                                         break
-        for i in algorithms:
-            item = QListWidgetItem(i)
+        for class_name, algo_id, display_name in sorted(algorithms, key=lambda x: x[1]):
+            label = f"{algo_id} - {display_name}"
+            item = QListWidgetItem(label)
             item.setFlags(item.flags() | Qt.ItemIsUserCheckable)
             item.setCheckState(Qt.Unchecked)
+            item.setData(Qt.UserRole, class_name)
             self.controlListWidget.addItem(item)
 
 

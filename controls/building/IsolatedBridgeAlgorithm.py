@@ -10,7 +10,7 @@ from ControlPointLayer import ControlPointLayer
 
 class IsolatedBridgeAlgorithm(QgsProcessingAlgorithm):
 
-    def initAlgorithm(self):
+    def initAlgorithm(self, config=None):
         self.addParameter(
             QgsProcessingParameterVectorLayer(
                 'ROAD_LAYER',
@@ -165,7 +165,10 @@ class IsolatedBridgeAlgorithm(QgsProcessingAlgorithm):
     def shortHelpString(self):
         """Description de l'algorithme"""
         return \
-            "Ce contrôle détecte toutes les surfaces trouées incohérentes ou suspectes"
+            "Ce contrôle se limite à la recherche des Tronçons de route de Position par rapport au sol <= 0 "\
+            "partageant la géométrie d’une Construction linéaire de Nature = ‘Pont’ (ou à une distance de moins de 50 cm du pont)."\
+            "Ce contrôle recherche également les Tronçons de route de Position par rapport au sol >= 0 "\
+            "partageant la géométrie d’une Construction linéaire de Nature = ‘Tunnel’ (ou à une distance de moins de 50 cm du tunnel)."
 
     def createInstance(self):
         """Crée une nouvelle instance de l'algorithme"""

@@ -1,6 +1,6 @@
 from qgis.core import (
 QgsProcessingAlgorithm,
-QgsProcessingParameterMultipleLayers,
+QgsProcessingParameterVectorLayer,
 QgsProcessing,
 QgsProcessingParameterFile,
 QgsProcessingParameterFeatureSink,
@@ -12,13 +12,12 @@ import json
 
 class NotNullAttributeAlgorithm(QgsProcessingAlgorithm):
 
-
-    def initAlgorithm(self):
+    def initAlgorithm(self, config=None):
         self.addParameter(
-            QgsProcessingParameterMultipleLayers(
-                'INPUT_LAYERS',
-                "Couches en entrée",
-                layerType=QgsProcessing.TypeVectorAnyGeometry
+            QgsProcessingParameterVectorLayer(
+                'INPUT_LAYER',
+                "Couche en entrée",
+                types=[QgsProcessing.TypeVectorAnyGeometry]
             )
         )
         self.addParameter(
@@ -36,28 +35,28 @@ class NotNullAttributeAlgorithm(QgsProcessingAlgorithm):
         )
 
     def processAlgorithm(self, parameters, context, feedback):
-        layers = self.parameterAsLayerList(parameters, 'INPUT_LAYERS', context)
+        layer = self.parameterAsVectorLayer(parameters, 'INPUT_LAYER', context)
         json_path = self.parameterAsFile(parameters, 'PARAM_JSON', context)
-        # param_json : {'couche': ['attribut1', 'attribut2', ...], ...}
 
         with open(json_path, "r", encoding="utf-8") as f:
             param_json = json.load(f)
 
         null_attributes_feature = []
-        for layer in layers:
-            if layer.name() not in param_json.keys():
-                feedback.reportError("{} n'est pas présent dans le fichier json de paramétrage".format(layer.name()))
-                continue
-            for feature in layer.getFeatures():
-                for attribute in param_json[layer.name()]:
-                    if feature[attribute] == NULL:
-                        null_attributes_feature.append([
-                            'Attributs vides',
-                            layer.name(),
-                            feature.id(),
-                            attribute,
-                            'Champs vides pour {}'.format(layer.name()),
-                            feature.geometry().centroid()])
+        if layer.name() not in param_json.keys():
+            feedback.reportError("{} n'est pas présent dans le fichier json de paramétrage".format(layer.name()))
+            return {'OUTPUT': 'Traitement terminé'}
+
+        for feature in layer.getFeatures():
+            for attribute in param_json[layer.name()]:
+                if feature[attribute] == NULL:
+                    null_attributes_feature.append([
+                        'Attributs vides',
+                        layer.name(),
+                        feature.id(),
+                        attribute,
+                        'Champs vides pour {}'.format(layer.name()),
+                        feature.geometry().centroid()])
+
         if null_attributes_feature:
             controlpoint_layer = ControlPointLayer('Attributs vides')
             controlpoint_layer.add_features(null_attributes_feature)

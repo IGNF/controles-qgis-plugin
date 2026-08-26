@@ -1,6 +1,6 @@
 from qgis.core import (
 QgsProcessingAlgorithm,
-QgsProcessingParameterMultipleLayers,
+ QgsProcessingParameterVectorLayer,
 QgsProcessing,
 QgsProcessingParameterFeatureSink,
 QgsWkbTypes
@@ -10,13 +10,12 @@ from ControlPointLayer import ControlPointLayer
 
 class SurfaceIntersectionAlgorithm(QgsProcessingAlgorithm):
 
-
-    def initAlgorithm(self):
+    def initAlgorithm(self, config=None):
         self.addParameter(
-            QgsProcessingParameterMultipleLayers(
-                'INPUT_LAYERS',
-                "Couches en entrée",
-                layerType=QgsProcessing.TypeVectorPolygon
+            QgsProcessingParameterVectorLayer(
+                'INPUT_LAYER',
+                "Couche en entrée",
+                types=[QgsProcessing.TypeVectorPolygon]
             )
         )
         self.addParameter(
@@ -27,39 +26,35 @@ class SurfaceIntersectionAlgorithm(QgsProcessingAlgorithm):
         )
 
     def processAlgorithm(self, parameters, context, feedback):
-        layers = self.parameterAsLayerList(parameters, 'INPUT_LAYERS', context)
+        layer = self.parameterAsVectorLayer(parameters, 'INPUT_LAYER', context)
 
         intersection_features = []
-        for layer in layers:
-            if layer.geometryType() != QgsWkbTypes.PolygonGeometry:
-                feedback.reportError("{} n'est pas une couche surfacique".format(layer.name()))
+        if layer.geometryType() != QgsWkbTypes.PolygonGeometry:
+            feedback.reportError("{} n'est pas une couche surfacique".format(layer.name()))
+            return {'OUTPUT': 'Traitement terminé'}
+
+        features = list(layer.getFeatures())
+        for i, feature1 in enumerate(features):
+            geom1 = feature1.geometry()
+            if not geom1 or geom1.isNull():
                 continue
-
-            features = list(layer.getFeatures())
-            for i, feature1 in enumerate(features):
-                geom1 = feature1.geometry()
-                if not geom1 or geom1.isNull():
+            for j in range(i + 1, len(features)):
+                feature2 = features[j]
+                geom2 = feature2.geometry()
+                if not geom2 or geom2.isNull():
                     continue
-                for j in range(i + 1, len(features)):
-                    feature2 = features[j]
-                    geom2 = feature2.geometry()
-                    if not geom2 or geom2.isNull():
-                        continue
+                if geom1.intersects(geom2):
+                    intersection = geom1.intersection(geom2)
+                    if intersection.area() > 0:
+                        intersection_features.append([
+                            'Intersection de surfaciques',
+                            layer.name(),
+                            feature1.id(),
+                            "geometry",
+                            "Intersection franche",
+                            intersection.centroid()
+                        ])
 
-                    # Vérifier si les géométries s'intersectent
-                    if geom1.intersects(geom2):
-                        intersection = geom1.intersection(geom2)
-
-                        # Ne conserver que les intersections surfaciques (pas les contacts de bord)
-                        if intersection.area() > 0:
-                            intersection_features.append([
-                                'Intersection de surfaciques',
-                                layer.name(),
-                                feature1.id(),
-                                "geometry",
-                                "Intersection franche",
-                                intersection.centroid()
-                            ])
         if intersection_features != []:
             controlpoint_layer = ControlPointLayer('Intersection de surfaciques')
             controlpoint_layer.add_features(intersection_features)

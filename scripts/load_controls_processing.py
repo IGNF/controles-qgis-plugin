@@ -7,10 +7,12 @@ Script pour charger les contrôles BDUni dans la boîte à outils QGIS
 import sys
 import os
 import gc
+import glob
+import importlib
 from qgis.core import QgsApplication, QgsMessageLog, Qgis
 
-# Chemin du plugin (adapter si nécessaire)
-PLUGIN_PATH = os.path.dirname(__file__)
+# Chemin du plugin (répertoire parent du dossier scripts/)
+PLUGIN_PATH = os.path.dirname(os.path.dirname(__file__))
 
 
 def is_provider_valid(provider):
@@ -56,11 +58,28 @@ def load_controles_bduni_processing():
         QgsApplication.processEvents()
 
         # Nettoyer les modules Python en cache pour forcer la réimportation
-        modules_to_remove = [key for key in list(sys.modules.keys())
-                           if 'processing_provider' in key.lower() or
-                              ('controles' in key.lower() and 'bduni' in key.lower())]
+        # On supprime tous les modules dont le fichier source est dans le répertoire du plugin
+        modules_to_remove = []
+        for key, mod in list(sys.modules.items()):
+            mod_file = getattr(mod, '__file__', None)
+            if mod_file and os.path.abspath(mod_file).startswith(os.path.abspath(PLUGIN_PATH)):
+                modules_to_remove.append(key)
+            elif any(part in key.lower() for part in ('processing_provider', 'controlpointlayer')) \
+                    or key == 'controls' or key.startswith('controls.') \
+                    or ('controles' in key.lower() and 'bduni' in key.lower()):
+                modules_to_remove.append(key)
         for module in modules_to_remove:
             sys.modules.pop(module, None)
+
+        # Supprimer les fichiers .pyc du plugin pour forcer la recompilation
+        for pyc_file in glob.glob(os.path.join(PLUGIN_PATH, '**', '__pycache__', '*.pyc'), recursive=True):
+            try:
+                os.remove(pyc_file)
+            except OSError:
+                pass
+
+        # Invalider le cache d'import de Python
+        importlib.invalidate_caches()
 
         # Importer le provider (réimportation propre)
         from processing_provider import ControlesBDUniProvider

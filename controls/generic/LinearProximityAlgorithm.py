@@ -1,6 +1,6 @@
 from qgis.core import (
 QgsProcessingAlgorithm,
-QgsProcessingParameterMultipleLayers,
+QgsProcessingParameterVectorLayer,
 QgsProcessing,
 QgsProcessingParameterFeatureSink,
 QgsProcessingParameterNumber,
@@ -11,12 +11,12 @@ from ControlPointLayer import ControlPointLayer
 
 class LinearProximityAlgorithm(QgsProcessingAlgorithm):
 
-    def initAlgorithm(self):
+    def initAlgorithm(self, config=None):
         self.addParameter(
-            QgsProcessingParameterMultipleLayers(
-                'INPUT_LAYERS',
-                "Couche de route en entrée",
-                layerType=QgsProcessing.TypeVectorLine
+            QgsProcessingParameterVectorLayer(
+                'INPUT_LAYER',
+                "Couche en entrée",
+                types=[QgsProcessing.TypeVectorLine]
             )
         )
         self.addParameter(
@@ -36,53 +36,44 @@ class LinearProximityAlgorithm(QgsProcessingAlgorithm):
         )
 
     def processAlgorithm(self, parameters, context, feedback):
-        layers = self.parameterAsLayerList(parameters, 'INPUT_LAYERS', context)
+        layer = self.parameterAsVectorLayer(parameters, 'INPUT_LAYER', context)
         distance = self.parameterAsDouble(parameters, 'DISTANCE', context)
 
         proximity_issues = []
-        for layer in layers:
-            if layer.geometryType() != QgsWkbTypes.LineGeometry:
-                feedback.reportError(f"La couche {layer.name()} n'est pas linéaire")
+        if layer.geometryType() != QgsWkbTypes.LineGeometry:
+            feedback.reportError(f"La couche {layer.name()} n'est pas linéaire")
+            return {'OUTPUT': 'Traitement terminé'}
+
+        spatial_index = QgsSpatialIndex()
+        features_dict = {}
+
+        for feature in layer.getFeatures():
+            if feature.geometry().isEmpty() or feature.geometry().isGeosValid() is False:
                 continue
+            spatial_index.addFeature(feature)
+            features_dict[feature.id()] = feature
 
-            spatial_index = QgsSpatialIndex()
-            features_dict = {}
-
-            for feature in layer.getFeatures():
-                if feature.geometry().isEmpty() or feature.geometry().isGeosValid() is False:
+        for feature_id, feature in features_dict.items():
+            geom = feature.geometry()
+            search_rect = geom.boundingBox()
+            search_rect.grow(distance)
+            candidate_ids = spatial_index.intersects(search_rect)
+            for candidate_id in candidate_ids:
+                if candidate_id == feature_id:
                     continue
-                spatial_index.addFeature(feature)
-                features_dict[feature.id()] = feature
+                candidate_feature = features_dict[candidate_id]
+                candidate_geom = candidate_feature.geometry()
+                actual_distance = geom.distance(candidate_geom)
+                if 0 < actual_distance <= distance:
+                    proximity_issues.append([
+                        'Proximité des linéaires',
+                        layer.name(),
+                        feature.id(),
+                        'geometr',
+                        '',
+                        geom.centroid()
+                    ])
 
-                # Vérifier la proximité entre les objets
-            for feature_id, feature in features_dict.items():
-                geom = feature.geometry()
-                # Créer une zone tampon pour la recherche
-                search_rect = geom.boundingBox()
-                search_rect.grow(distance)
-
-                # Trouver les objets candidats
-                candidate_ids = spatial_index.intersects(search_rect)
-
-                for candidate_id in candidate_ids:
-                    if candidate_id == feature_id:
-                        continue
-
-                    candidate_feature = features_dict[candidate_id]
-                    candidate_geom = candidate_feature.geometry()
-
-                    # Calculer la distance réelle
-                    actual_distance = geom.distance(candidate_geom)
-
-                    if 0 < actual_distance <= distance:
-                        proximity_issues.append([
-                            'Proximité des linéaires',
-                            layer.name(),
-                            feature.id(),
-                            'geometr',
-                            '',
-                            geom.centroid()
-                        ])
         if proximity_issues:
             controlpoint_layer = ControlPointLayer('Proximité des linéaires')
             controlpoint_layer.add_features(proximity_issues)

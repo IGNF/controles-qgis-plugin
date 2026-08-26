@@ -12,7 +12,7 @@ from ControlPointLayer import ControlPointLayer
 class NonExactDuplicateAlgorithm(QgsProcessingAlgorithm):
 
 
-    def initAlgorithm(self):
+    def initAlgorithm(self, config=None):
         self.addParameter(
             QgsProcessingParameterMultipleLayers(
                 'INPUT_LAYERS',
@@ -20,7 +20,6 @@ class NonExactDuplicateAlgorithm(QgsProcessingAlgorithm):
                 layerType=QgsProcessing.TypeVectorAnyGeometry
             )
         )
-
         self.addParameter(
             QgsProcessingParameterFeatureSink(
                 'OUTPUT',
@@ -99,22 +98,14 @@ class NonExactDuplicateAlgorithm(QgsProcessingAlgorithm):
             # Créer un index spatial
             spatial_index = QgsSpatialIndex(layer.getFeatures())
             features = list(layer.getFeatures())
-
             for i, f1 in enumerate(features):
-
                 if not f1.geometry().isGeosValid():
                     continue
-
-                # Rechercher les candidats proches
                 candidate_ids = spatial_index.intersects(f1.geometry().boundingBox())
-
                 for fid2 in candidate_ids:
-                    # Éviter de comparer un objet avec lui-même
                     if fid2 <= f1.id():
                         continue
-
                     f2 = layer.getFeature(fid2)
-
                     if not f2.geometry().isGeosValid():
                         continue
 

@@ -14,19 +14,19 @@ import json
 
 class RoadSectionWaterSurfaceIntersectionAlgorithm(QgsProcessingAlgorithm):
 
-    def initAlgorithm(self):
+    def initAlgorithm(self, config=None):
         self.addParameter(
             QgsProcessingParameterVectorLayer(
                 'ROAD_LAYER',
                 "Couche de route en entrée",
-                layerType=QgsProcessing.TypeVectorLine
+                types=[QgsProcessing.TypeVectorLine]
             )
         )
         self.addParameter(
             QgsProcessingParameterVectorLayer(
                 'WATER_LAYER',
                 "Couche de surface d'eau en entrée",
-                layerType=QgsProcessing.TypeVectorPolygon
+                types=[QgsProcessing.TypeVectorPolygon]
             )
         )
         self.addParameter(

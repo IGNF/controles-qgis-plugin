@@ -1,6 +1,6 @@
 from qgis.core import (
 QgsProcessingAlgorithm,
-QgsProcessingParameterMultipleLayers,
+QgsProcessingParameterVectorLayer,
 QgsProcessing,
 QgsProcessingParameterFeatureSink,
 QgsProcessingParameterFile,
@@ -11,12 +11,12 @@ import json
 
 class MicroObjectAlgorithm(QgsProcessingAlgorithm):
 
-    def initAlgorithm(self):
+    def initAlgorithm(self, config=None):
         self.addParameter(
-            QgsProcessingParameterMultipleLayers(
-                'INPUT_LAYERS',
-                "Couche de route en entrée",
-                layerType=QgsProcessing.TypeVectorLine|QgsProcessing.TypeVectorPolygon
+            QgsProcessingParameterVectorLayer(
+                'INPUT_LAYER',
+                "Couche en entrée",
+                types=[QgsProcessing.TypeVectorAnyGeometry]
             )
         )
         self.addParameter(
@@ -34,56 +34,47 @@ class MicroObjectAlgorithm(QgsProcessingAlgorithm):
         )
 
     def processAlgorithm(self, parameters, context, feedback):
-        layers = self.parameterAsLayerList(parameters, 'INPUT_LAYERS', context)
+        layer = self.parameterAsVectorLayer(parameters, 'INPUT_LAYER', context)
         param_file = self.parameterAsFile(parameters, 'PARAM_JSON', context)
 
-        # Charger les seuils depuis le JSON
         with open(param_file, 'r', encoding='utf-8') as f:
             thresholds = json.load(f)
 
         micro_objects = []
-        for layer in layers:
-            if layer.geometryType() not in [QgsWkbTypes.LineGeometry, QgsWkbTypes.PolygonGeometry]:
-                feedback.pushWarning(f"La couche {layer.name()} n'est ni linéaire ni surfacique, elle sera ignorée")
+        if layer.geometryType() not in [QgsWkbTypes.LineGeometry, QgsWkbTypes.PolygonGeometry]:
+            feedback.pushWarning(f"La couche {layer.name()} n'est ni linéaire ni surfacique, elle sera ignorée")
+            return {'OUTPUT': 'Traitement terminé'}
+
+        threshold = thresholds.get(layer.name())
+        if threshold is None:
+            feedback.pushWarning(f"Aucun seuil défini pour la couche {layer.name()}")
+            return {'OUTPUT': 'Traitement terminé'}
+
+        for feature in layer.getFeatures():
+            comment = ''
+            geom = feature.geometry()
+            if geom.isEmpty() or not geom.isGeosValid():
                 continue
-
-            threshold = thresholds.get(layer.name())
-            if threshold is None:
-                feedback.pushWarning(f"Aucun seuil défini pour la couche {layer.name()}")
-                continue
-
-            for feature in layer.getFeatures():
-                comment = ''
-                geom = feature.geometry()
-
-                if geom.isEmpty() or not geom.isGeosValid():
-                    continue
-
-                is_micro = False
-
-                # Vérification pour les objets linéaires
-                if layer.geometryType() == QgsWkbTypes.LineGeometry:
-                    length = geom.length()
-                    if length <= threshold:
-                        is_micro = True
-                        comment = 'Objet de longueur <= {}m'.format(length)
-
-                # Vérification pour les objets surfaciques
-                elif layer.geometryType() == QgsWkbTypes.PolygonGeometry:
-                    area = geom.area()
-                    if area <= threshold:
-                        is_micro = True
-                        comment = 'Objet de surface <= {}m²'.format(area)
-
-                if is_micro:
-                    micro_objects.append([
-                        'Micro-objet',
-                        layer.name(),
-                        feature.id(),
-                        'geometrie',
-                        comment,
-                        geom.centroid()
-                    ])
+            is_micro = False
+            if layer.geometryType() == QgsWkbTypes.LineGeometry:
+                length = geom.length()
+                if length <= threshold:
+                    is_micro = True
+                    comment = 'Objet de longueur <= {}m'.format(length)
+            elif layer.geometryType() == QgsWkbTypes.PolygonGeometry:
+                area = geom.area()
+                if area <= threshold:
+                    is_micro = True
+                    comment = 'Objet de surface <= {}m²'.format(area)
+            if is_micro:
+                micro_objects.append([
+                    'Micro-objet',
+                    layer.name(),
+                    feature.id(),
+                    'geometrie',
+                    comment,
+                    geom.centroid()
+                ])
 
         if micro_objects:
             controlpoint_layer = ControlPointLayer('Micro-objets')
