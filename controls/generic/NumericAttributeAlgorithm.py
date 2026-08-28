@@ -44,14 +44,17 @@ class NumericAttributeAlgorithm(QgsProcessingAlgorithm):
             for att in fields:
                 if feature[att] == NULL:
                     continue
-                if isinstance(feature[att], (int, float)):
-                    numeric_attributes_feature.append(
-                        ['Attributs numériques',
-                        layer.name(),
-                        feature.id(),
-                        att,
-                        '',
-                        feature.geometry().pointOnSurface()])
+                if not isinstance(feature[att], (int, float)):
+                    try:
+                        float(feature[att])
+                    except (ValueError, TypeError):
+                        numeric_attributes_feature.append(
+                            ['Attributs numériques',
+                            layer.name(),
+                            feature.id(),
+                            att,
+                            '',
+                            feature.geometry().pointOnSurface()])
 
         if numeric_attributes_feature != []:
             controlpoint_layer = ControlPointLayer('Attributs numériques')
