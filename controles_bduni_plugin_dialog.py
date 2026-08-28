@@ -25,7 +25,7 @@
 import os
 
 from qgis.PyQt import uic
-from qgis import QtCore
+from qgis.PyQt.QtCore import Qt
 from qgis.core import QgsProject, Qgis
 
 from qgis.PyQt.QtWidgets import QAction, QListWidget, QListWidgetItem, QDialog
@@ -62,38 +62,60 @@ class ControlesBDUniPluginDialog(QDialog, FORM_CLASS):
     def check_all_controls(self):
         for i in range(self.controlListWidget.count()):
             item = self.controlListWidget.item(i)
-            item.setCheckState(QtCore.Qt.Checked)
+            item.setCheckState(Qt.Checked)
 
     def uncheck_all_controls(self):
         for i in range(self.controlListWidget.count()):
             item = self.controlListWidget.item(i)
-            item.setCheckState(QtCore.Qt.Unchecked)
+            item.setCheckState(Qt.Unchecked)
 
     def check_all_layers(self):
         for i in range(self.layerListWidget.count()):
             item = self.layerListWidget.item(i)
-            item.setCheckState(QtCore.Qt.Checked)
+            item.setCheckState(Qt.Checked)
 
     def uncheck_all_layers(self):
         for i in range(self.layerListWidget.count()):
             item = self.layerListWidget.item(i)
-            item.setCheckState(QtCore.Qt.Unchecked)
+            item.setCheckState(Qt.Unchecked)
 
+
+    @staticmethod
+    def _get_method_return_str(class_node, method_name):
+        """Extrait la valeur de retour (string) d'une méthode simple via AST."""
+        for node in class_node.body:
+            if isinstance(node, ast.FunctionDef) and node.name == method_name:
+                for stmt in node.body:
+                    if isinstance(stmt, ast.Return) and stmt.value is not None:
+                        if isinstance(stmt.value, ast.Constant) and isinstance(stmt.value.value, str):
+                            return stmt.value.value.strip()
+        return None
 
     def load_controls(self):
-        functions = []
+        algorithms = []
         directory_path = os.path.dirname(__file__) + '/controls'
-        for f in os.listdir(directory_path):
-            if os.path.isfile(os.path.join(directory_path, f)):
-                with open(os.path.join(directory_path, f), "r") as file:
-                    tree = ast.parse(file.read())
-                for node in tree.body:
-                    if isinstance(node, ast.FunctionDef):
-                        functions.append(node.name)
-        for i in functions:
-            item = QListWidgetItem(i.replace('_',' '))
-            item.setFlags(item.flags() | QtCore.Qt.ItemIsUserCheckable)
-            item.setCheckState(QtCore.Qt.Unchecked)
+        for subdir in os.listdir(directory_path):
+            subdir_path = os.path.join(directory_path, subdir)
+            if os.path.isdir(subdir_path):
+                for f in os.listdir(subdir_path):
+                    if f.endswith('.py') and f != '__init__.py':
+                        file_path = os.path.join(subdir_path, f)
+                        with open(file_path, "r") as file:
+                            tree = ast.parse(file.read())
+                        for node in tree.body:
+                            if isinstance(node, ast.ClassDef):
+                                for base in node.bases:
+                                    if isinstance(base, ast.Name) and base.id == 'QgsProcessingAlgorithm':
+                                        algo_id = self._get_method_return_str(node, 'name') or node.name
+                                        display_name = self._get_method_return_str(node, 'displayName') or node.name
+                                        algorithms.append((node.name, algo_id, display_name))
+                                        break
+        for class_name, algo_id, display_name in sorted(algorithms, key=lambda x: x[1]):
+            label = f"{algo_id} - {display_name}"
+            item = QListWidgetItem(label)
+            item.setFlags(item.flags() | Qt.ItemIsUserCheckable)
+            item.setCheckState(Qt.Unchecked)
+            item.setData(Qt.UserRole, class_name)
             self.controlListWidget.addItem(item)
 
 
@@ -101,6 +123,6 @@ class ControlesBDUniPluginDialog(QDialog, FORM_CLASS):
         layers = QgsProject.instance().layerTreeRoot().children()
         for i in layers:
             item = QListWidgetItem(i.name())
-            item.setFlags(item.flags() | QtCore.Qt.ItemIsUserCheckable)
-            item.setCheckState(QtCore.Qt.Unchecked)
+            item.setFlags(item.flags() | Qt.ItemIsUserCheckable)
+            item.setCheckState(Qt.Unchecked)
             self.layerListWidget.addItem(item)

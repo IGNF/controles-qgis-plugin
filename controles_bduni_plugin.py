@@ -21,21 +21,28 @@
  *                                                                         *
  ***************************************************************************/
 """
-from qgis.PyQt.QtCore import QSettings, QTranslator, QCoreApplication
+from qgis.PyQt.QtCore import QSettings, QTranslator, QCoreApplication, Qt
 from qgis import QtCore
-from qgis.core import QgsProject, Qgis
+from qgis.core import (QgsProject, Qgis, QgsProcessingContext, QgsProcessingFeedback,
+                       QgsApplication, QgsProcessingParameterVectorLayer,
+                       QgsProcessingParameterFile)
 from qgis.PyQt.QtGui import QIcon
 from qgis.PyQt.QtWidgets import QAction, QListWidget, QListWidgetItem, QMessageBox
+import sip
+import gc
 
-# Initialize Qt resources from file resources.py
-from .controls import controles_attributaires, controles_geometriques
+
 # Import the code for the dialog
 from .controles_bduni_plugin_dialog import ControlesBDUniPluginDialog
+from .processing_provider import ControlesBDUniProvider
 import os.path
 import json
 from json.decoder import JSONDecodeError
-import inspect
 import logging
+
+
+# Variable globale pour stocker le provider et éviter sa destruction prématurée
+_provider_instance = None
 
 
 class ControlesBDUniPlugin:
@@ -71,6 +78,7 @@ class ControlesBDUniPlugin:
         # Declare instance attributes
         self.actions = []
         self.menu = self.tr(u'&Controles BDUni Plugin')
+        self.provider = None
 
         # Check if plugin was started the first time in current QGIS session
         # Must be set in initGui() to survive plugin reloads
@@ -90,6 +98,15 @@ class ControlesBDUniPlugin:
         """
         # noinspection PyTypeChecker,PyArgumentList,PyCallByClass
         return QCoreApplication.translate('ControlesBDUniPlugin', message)
+
+    def _is_provider_deleted(self):
+        """Vérifie si l'objet C++ du provider a été supprimé"""
+        if self.provider is None:
+            return True
+        try:
+            return sip.isdeleted(self.provider)
+        except:
+            return True
 
 
     def add_action(
@@ -179,14 +196,46 @@ class ControlesBDUniPlugin:
         # will be set False in run()
         self.first_start = True
 
+        # Initialiser et enregistrer le provider de processing via le script
+        self.initProcessing()
+
+    def initProcessing(self):
+        """Initialise le provider de processing via le script load_controls_processing"""
+        global _provider_instance
+        import importlib.util
+
+        script_path = os.path.join(self.plugin_dir, 'scripts', 'load_controls_processing.py')
+        spec = importlib.util.spec_from_file_location('load_controls_processing', script_path)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+
+        # Stocker le module pour pouvoir décharger plus tard
+        self._load_controls_module = module
+
+        provider = module.load_controles_bduni_processing()
+        if provider is not None:
+            self.provider = provider
+            _provider_instance = provider
+
 
     def unload(self):
         """Removes the plugin menu item and icon from QGIS GUI."""
+        global _provider_instance
+
         for action in self.actions:
             self.iface.removePluginMenu(
                 self.tr(u'&Controles BDUni Plugin'),
                 action)
             self.iface.removeToolBarIcon(action)
+
+        # Désenregistrer le provider via le script
+        if hasattr(self, '_load_controls_module'):
+            self._load_controls_module.unload_controles_bduni_processing()
+
+        # Nettoyer les références
+        self.provider = None
+        _provider_instance = None
+        gc.collect()
 
 
     def run_controls(self):
@@ -195,36 +244,90 @@ class ControlesBDUniPlugin:
         for i in range(self.dlg.controlListWidget.count()):
             control_item = self.dlg.controlListWidget.item(i)
             if control_item.checkState() == QtCore.Qt.Checked:
-                controls.append(control_item)
+                controls.append(control_item.data(Qt.UserRole))
         for j in range(self.dlg.layerListWidget.count()):
             layer_item = self.dlg.layerListWidget.item(j)
             if layer_item.checkState() == QtCore.Qt.Checked:
-                layers.append(layer_item.text())
-        if controls == []:
+                layers.append(QgsProject.instance().mapLayersByName(layer_item.text())[0])
+        if not controls:
             self.iface.messageBar().clearWidgets()
             self.iface.messageBar().pushMessage("Erreur", "Aucun contrôle séléctionné", level=Qgis.Warning, duration=10)
-            raise Exception
-        if layers == []:
+            return
+        if not layers:
             self.iface.messageBar().clearWidgets()
             self.iface.messageBar().pushMessage("Erreur", "Aucune couche séléctionnée", level=Qgis.Warning, duration=10)
-            raise Exception
-        for control in controls:
-            functext = control.text().replace(' ','_')
-            if hasattr(controles_attributaires, functext) and callable(getattr(controles_attributaires, functext)):
-                func = getattr(controles_attributaires, functext)
-            else:
-                func = getattr(controles_geometriques, functext)
-            sig = inspect.signature(func)
-            num_args = len([param for param in sig.parameters.values() if param.default == inspect.Parameter.empty])
-            if num_args == 1:
-                func(layers)
-            elif num_args == 2:
-                if functext not in self.param.keys():
-                    self.param[functext] = []
-                n = func(layers, self.param[functext])
-                self.iface.messageBar().pushMessage("Info",
-                                                    "Controle {} : {} anomalies ".format(control.text(), n),
-                                                    level=Qgis.Info, duration=10)
+            return
+
+        # Vérifier que le provider est valide
+        if self.provider is None or self._is_provider_deleted():
+            self.iface.messageBar().pushMessage("Erreur",
+                                                "Le provider de contrôles n'est pas disponible. Réinitialisez le plugin.",
+                                                level=Qgis.Critical, duration=10)
+            return
+
+        for control_name in controls:
+            # Chercher l'algorithme dans le provider
+            algo = None
+            for alg in self.provider.algorithms():
+                if alg.__class__.__name__ == control_name:
+                    algo = alg
+                    break
+
+            if algo is None:
+                self.iface.messageBar().pushMessage("Erreur",
+                                                    f"Contrôle {control_name} introuvable",
+                                                    level=Qgis.Warning, duration=10)
+                continue
+
+            try:
+                context = QgsProcessingContext()
+                feedback = QgsProcessingFeedback()
+                json_path = os.path.join(self.plugin_dir, 'param.json')
+
+                # Introspection des paramètres de l'algorithme
+                param_defs = algo.parameterDefinitions()
+                vector_params = [p for p in param_defs
+                                 if isinstance(p, QgsProcessingParameterVectorLayer)]
+                has_json = any(isinstance(p, QgsProcessingParameterFile) and p.name() == 'PARAM_JSON'
+                               for p in param_defs)
+
+                result = None
+
+                if len(vector_params) == 1:
+                    # Cas standard : un seul INPUT_LAYER → exécuter pour chaque couche
+                    for layer in layers:
+                        params = {vector_params[0].name(): layer}
+                        if has_json:
+                            params['PARAM_JSON'] = json_path
+                        result = algo.processAlgorithm(params, context, feedback)
+
+                elif len(vector_params) > 1:
+                    # Cas multi-couches : assigner les couches sélectionnées dans l'ordre des paramètres
+                    if len(layers) < len(vector_params):
+                        param_names = ', '.join(p.name() for p in vector_params)
+                        self.iface.messageBar().pushMessage(
+                            "Avertissement",
+                            f"{control_name} nécessite {len(vector_params)} couches ({param_names}),"
+                            f" seulement {len(layers)} sélectionnée(s)",
+                            level=Qgis.Warning, duration=10)
+                        continue
+                    params = {p.name(): layers[i] for i, p in enumerate(vector_params)}
+                    if has_json:
+                        params['PARAM_JSON'] = json_path
+                    result = algo.processAlgorithm(params, context, feedback)
+
+                if result is not None:
+                    self.iface.messageBar().pushMessage("Info",
+                        f"Contrôle {control_name} : {result.get('OUTPUT', 'terminé')}",
+                        level=Qgis.Info, duration=10)
+
+            except Exception as e:
+                logging.basicConfig(level=logging.DEBUG,
+                                    filename=os.path.join(self.plugin_dir, 'controls.log'))
+                logging.error(f"Erreur pour {control_name}: {e}")
+                self.iface.messageBar().pushMessage("Erreur",
+                                                    f"Erreur lors de l'exécution de {control_name}: {str(e)}",
+                                                    level=Qgis.Warning, duration=10)
 
 
     def run(self):
