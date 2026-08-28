@@ -50,7 +50,7 @@ class SelfIntersectionAlgorithm(QgsProcessingAlgorithm):
         if self_intersection_issues:
             controlpoint_layer = ControlPointLayer('Auto-intersections')
             controlpoint_layer.add_features(self_intersection_issues)
-            controlpoint_layer.save()
+            controlpoint_layer.save_as_temp_layer()
 
         return {'OUTPUT': 'Traitement terminé'}
 

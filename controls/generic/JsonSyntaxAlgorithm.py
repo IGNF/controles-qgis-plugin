@@ -58,12 +58,12 @@ class JsonSyntaxAlgorithm(QgsProcessingAlgorithm):
                                        feature.id(),
                                        att,
                                        'La syntaxe JSON du champ {} est incorrecte'.format(feature[att]),
-                                       feature.geometry().centroid()])
+                                       feature.geometry().pointOnSurface()])
 
         if json_attributes != []:
             controlpoint_layer = ControlPointLayer('Syntaxe des champs JSON')
             controlpoint_layer.add_features(json_attributes)
-            controlpoint_layer.save()
+            controlpoint_layer.save_as_temp_layer()
 
         return {'OUTPUT': 'Traitement terminé'}
 

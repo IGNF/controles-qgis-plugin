@@ -14,7 +14,7 @@ class AttributesInconsistencyAlgorithm(QgsProcessingAlgorithm):
 
     def name(self):
         """Identifiant unique de l'algorithme"""
-        return 'C.03'
+        return 'C.00'
 
     def displayName(self):
         """Nom affiché de l'algorithme"""
@@ -30,9 +30,21 @@ class AttributesInconsistencyAlgorithm(QgsProcessingAlgorithm):
 
     def shortHelpString(self):
         """Description de l'algorithme"""
-        return \
-            "Le contrôle détecte les incohérences entre attributs pour une classe donnée d'après la règle suivante :"\
-            "Si Champ1 <> Valeur1 alors Champ2 = Valeur2."
+        return (
+            "Le contrôle détecte les incohérences entre attributs pour une classe donnée d'après la règle suivante :\n"
+            "Cas1  : Si Champ1 <> Valeur1 alors Champ2 >= Champ1\n"
+            "Cas2  : Si Champ1 <> Valeur1 alors Champ2 <= Champ1\n"
+            "Cas3  : Si Champ1 <> Valeur1 alors Champ2 = Valeur2\n"
+            "Cas4  : Si Champ1 <> Valeur1 alors Champ2 <> Valeur2\n"
+            "Cas5  : Si Champ1 = Valeur1 alors Champ2 = Valeur2\n"
+            "Cas6  : Si Champ1 = Valeur1 alors Champ2 <> Valeur2\n"
+            "Cas7  : Si Champ1 <> Valeur1 et Champ2 <> Valeur2 alors Champ1 < Champ2\n"
+            "Cas8  : Si Champ1 = Valeur1 alors Champ2 <= DATE_DU_JOUR\n"
+            "Cas9  : Si Champ1 <> Valeur1 alors Champ2 <= Champ1 + Valeur2 (en mois)\n"
+            "Cas10 : Si Champ1 = Valeur1 alors Champ2 = Valeur2 ou Valeur2 ou Valeur2...\n"
+            "Cas13 : Si Champ1 = Valeur1 et Champ2 <> Valeur2 alors Champ3 = Valeur3\n"
+            "Cas14 : Si Champ1 = Valeur1 alors Champ2 ne contient pas Valeur2"
+        )
 
     def createInstance(self):
         """Crée une nouvelle instance de l'algorithme"""
@@ -84,11 +96,11 @@ class AttributesInconsistencyAlgorithm(QgsProcessingAlgorithm):
                         feature.id(),
                         consequence[0],
                         'Les champs {} et {} ne sont pas cohérents'.format(condition[0], consequence[0]),
-                        feature.geometry().centroid()])
+                        feature.geometry().pointOnSurface()])
 
         if incoherence_attributes_feature != []:
             controlpoint_layer = ControlPointLayer('Incohérence entre attributs')
             controlpoint_layer.add_features(incoherence_attributes_feature)
-            controlpoint_layer.save()
+            controlpoint_layer.save_as_temp_layer()
 
         return {'OUTPUT': 'Traitement terminé'}

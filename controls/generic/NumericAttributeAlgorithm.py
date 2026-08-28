@@ -2,12 +2,11 @@ from qgis.core import (
 QgsProcessingAlgorithm,
 QgsProcessingParameterVectorLayer,
 QgsProcessing,
-QgsProcessingParameterFile,
+QgsProcessingParameterField,
 QgsProcessingParameterFeatureSink,
 NULL
 )
 from ControlPointLayer import ControlPointLayer
-import json
 
 
 class NumericAttributeAlgorithm(QgsProcessingAlgorithm):
@@ -21,10 +20,11 @@ class NumericAttributeAlgorithm(QgsProcessingAlgorithm):
             )
         )
         self.addParameter(
-            QgsProcessingParameterFile(
-                'PARAM_JSON',
-                'Paramètres JSON',
-                extension='json'
+            QgsProcessingParameterField(
+                'FIELDS',
+                'Champs à vérifier',
+                parentLayerParameterName='INPUT_LAYER',
+                allowMultiple=True
             )
         )
         self.addParameter(
@@ -36,18 +36,12 @@ class NumericAttributeAlgorithm(QgsProcessingAlgorithm):
 
     def processAlgorithm(self, parameters, context, feedback):
         layer = self.parameterAsVectorLayer(parameters, 'INPUT_LAYER', context)
-        json_path = self.parameterAsFile(parameters, 'PARAM_JSON', context)
-
-        with open(json_path, "r", encoding="utf-8") as f:
-            param_json = json.load(f)
+        fields = self.parameterAsFields(parameters, 'FIELDS', context)
 
         numeric_attributes_feature = []
-        if layer.name() not in param_json.keys():
-            feedback.reportError("{} n'est pas présent dans le fichier json de paramétrage".format(layer.name()))
-            return {'OUTPUT': 'Traitement terminé'}
 
         for feature in layer.getFeatures():
-            for att in param_json[layer.name()]:
+            for att in fields:
                 if feature[att] == NULL:
                     continue
                 if isinstance(feature[att], (int, float)):
@@ -57,12 +51,12 @@ class NumericAttributeAlgorithm(QgsProcessingAlgorithm):
                         feature.id(),
                         att,
                         '',
-                        feature.geometry().centroid()])
+                        feature.geometry().pointOnSurface()])
 
         if numeric_attributes_feature != []:
             controlpoint_layer = ControlPointLayer('Attributs numériques')
             controlpoint_layer.add_features(numeric_attributes_feature)
-            controlpoint_layer.save()
+            controlpoint_layer.save_as_temp_layer()
 
         return {'OUTPUT': 'Traitement terminé'}
 

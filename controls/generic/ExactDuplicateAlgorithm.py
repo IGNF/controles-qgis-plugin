@@ -2,6 +2,7 @@ from qgis.core import (
 QgsProcessingAlgorithm,
 QgsProcessingParameterVectorLayer,
 QgsProcessing,
+QgsProcessingParameterField,
 QgsProcessingParameterFeatureSink,
 QgsWkbTypes
 )
@@ -18,6 +19,14 @@ class ExactDuplicateAlgorithm(QgsProcessingAlgorithm):
                 types=[QgsProcessing.TypeVectorAnyGeometry]
             )
         )
+        excluded_param = QgsProcessingParameterField(
+            'EXCLUDED_FIELDS',
+            'Champs à exclure',
+            parentLayerParameterName='INPUT_LAYER',
+            allowMultiple=True,
+            optional=True
+        )
+        self.addParameter(excluded_param)
         self.addParameter(
             QgsProcessingParameterFeatureSink(
                 'OUTPUT',
@@ -27,6 +36,7 @@ class ExactDuplicateAlgorithm(QgsProcessingAlgorithm):
 
     def processAlgorithm(self, parameters, context, feedback):
         layer = self.parameterAsVectorLayer(parameters, 'INPUT_LAYER', context)
+        excluded_fields = self.parameterAsFields(parameters, 'EXCLUDED_FIELDS', context) or []
 
         doublons = []
         geom_dict = {}
@@ -36,8 +46,12 @@ class ExactDuplicateAlgorithm(QgsProcessingAlgorithm):
             geom = f.geometry().asWkt()
             if geom in geom_dict.keys():
                 doublon = True
-                for att in f.attributes():
-                    if f[att] != geom_dict[geom][att]:
+                fields_names = [field.name() for field in layer.fields()]
+                for idx, att_value in enumerate(f.attributes()):
+                    att_name = fields_names[idx]
+                    if att_name in excluded_fields:
+                        continue
+                    if att_value != geom_dict[geom].attributes()[idx]:
                         doublon = False
                         break
                 if doublon:
@@ -55,14 +69,14 @@ class ExactDuplicateAlgorithm(QgsProcessingAlgorithm):
                                      geom_dict[geom].id(),
                                      'geometry',
                                      doublon_type,
-                                     f.geometry().centroid()])
+                                     f.geometry().pointOnSurface()])
             else:
                 geom_dict[geom] = f
 
         if doublons != []:
             controlpoint_layer = ControlPointLayer('Doublons parfaits')
             controlpoint_layer.add_features(doublons)
-            controlpoint_layer.save()
+            controlpoint_layer.save_as_temp_layer()
 
         return {'OUTPUT': 'Traitement terminé'}
 

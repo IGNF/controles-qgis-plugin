@@ -142,7 +142,7 @@ class IsolatedBridgeAlgorithm(QgsProcessingAlgorithm):
         if issues:
             controlpoint_layer = ControlPointLayer('Pont isolé')
             controlpoint_layer.add_features(issues)
-            controlpoint_layer.save()
+            controlpoint_layer.save_as_temp_layer()
 
         return {'OUTPUT': 'Traitement terminé'}
 

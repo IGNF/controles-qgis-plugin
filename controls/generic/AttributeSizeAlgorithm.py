@@ -58,12 +58,12 @@ class AttributeSizeAlgorithm(QgsProcessingAlgorithm):
                         feature.id(),
                         att,
                         '',
-                        feature.geometry().centroid()])
+                        feature.geometry().pointOnSurface()])
 
         if size_attributes_feature != []:
             controlpoint_layer = ControlPointLayer('Taille des champs')
             controlpoint_layer.add_features(size_attributes_feature)
-            controlpoint_layer.save()
+            controlpoint_layer.save_as_temp_layer()
 
         return {'OUTPUT': 'Traitement terminé'}
 

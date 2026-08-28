@@ -168,7 +168,7 @@ class ZMaxAltitudeAlgorithm(QgsProcessingAlgorithm):
         if invalid_objects:
             controlpoint_layer = ControlPointLayer("Recherche d'incohérence géométrique entre pylône et point intermédiaire de la ligne éléctrique")
             controlpoint_layer.add_features(invalid_objects)
-            controlpoint_layer.save()
+            controlpoint_layer.save_as_temp_layer()
 
         return {'OUTPUT': 'Traitement terminé'}
 

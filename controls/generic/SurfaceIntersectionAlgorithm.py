@@ -58,7 +58,7 @@ class SurfaceIntersectionAlgorithm(QgsProcessingAlgorithm):
         if intersection_features != []:
             controlpoint_layer = ControlPointLayer('Intersection de surfaciques')
             controlpoint_layer.add_features(intersection_features)
-            controlpoint_layer.save()
+            controlpoint_layer.save_as_temp_layer()
 
         return {'OUTPUT': 'Traitement terminé'}
 

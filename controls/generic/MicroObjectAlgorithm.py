@@ -3,11 +3,10 @@ QgsProcessingAlgorithm,
 QgsProcessingParameterVectorLayer,
 QgsProcessing,
 QgsProcessingParameterFeatureSink,
-QgsProcessingParameterFile,
+QgsProcessingParameterNumber,
 QgsWkbTypes
 )
 from ControlPointLayer import ControlPointLayer
-import json
 
 class MicroObjectAlgorithm(QgsProcessingAlgorithm):
 
@@ -20,10 +19,12 @@ class MicroObjectAlgorithm(QgsProcessingAlgorithm):
             )
         )
         self.addParameter(
-            QgsProcessingParameterFile(
-                'PARAM_JSON',
-                'Paramètres JSON',
-                extension='json'
+            QgsProcessingParameterNumber(
+                'THRESHOLD',
+                'Seuil (m ou m²)',
+                type=QgsProcessingParameterNumber.Double,
+                defaultValue=3.0,
+                minValue=0.0
             )
         )
         self.addParameter(
@@ -35,19 +36,11 @@ class MicroObjectAlgorithm(QgsProcessingAlgorithm):
 
     def processAlgorithm(self, parameters, context, feedback):
         layer = self.parameterAsVectorLayer(parameters, 'INPUT_LAYER', context)
-        param_file = self.parameterAsFile(parameters, 'PARAM_JSON', context)
-
-        with open(param_file, 'r', encoding='utf-8') as f:
-            thresholds = json.load(f)
+        threshold = self.parameterAsDouble(parameters, 'THRESHOLD', context)
 
         micro_objects = []
         if layer.geometryType() not in [QgsWkbTypes.LineGeometry, QgsWkbTypes.PolygonGeometry]:
             feedback.pushWarning(f"La couche {layer.name()} n'est ni linéaire ni surfacique, elle sera ignorée")
-            return {'OUTPUT': 'Traitement terminé'}
-
-        threshold = thresholds.get(layer.name())
-        if threshold is None:
-            feedback.pushWarning(f"Aucun seuil défini pour la couche {layer.name()}")
             return {'OUTPUT': 'Traitement terminé'}
 
         for feature in layer.getFeatures():
@@ -79,7 +72,7 @@ class MicroObjectAlgorithm(QgsProcessingAlgorithm):
         if micro_objects:
             controlpoint_layer = ControlPointLayer('Micro-objets')
             controlpoint_layer.add_features(micro_objects)
-            controlpoint_layer.save()
+            controlpoint_layer.save_as_temp_layer()
 
         return {'OUTPUT': 'Traitement terminé'}
 

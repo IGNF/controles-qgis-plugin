@@ -110,7 +110,7 @@ class RouteContinuityAlgorithm(QgsProcessingAlgorithm):
         if invalid_objects:
             controlpoint_layer = ControlPointLayer("Continuité de l'Itinéraire FFR")
             controlpoint_layer.add_features(invalid_objects)
-            controlpoint_layer.save()
+            controlpoint_layer.save_as_temp_layer()
 
         return {'OUTPUT': 'Traitement terminé'}
 

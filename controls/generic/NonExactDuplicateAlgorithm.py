@@ -39,7 +39,7 @@ class NonExactDuplicateAlgorithm(QgsProcessingAlgorithm):
         if duplicates:
             controlpoint_layer = ControlPointLayer('Doublons')
             controlpoint_layer.add_features(duplicates)
-            controlpoint_layer.save()
+            controlpoint_layer.save_as_temp_layer()
 
         return {self.OUTPUT: 'Traitement terminé'}
 
@@ -79,7 +79,7 @@ class NonExactDuplicateAlgorithm(QgsProcessingAlgorithm):
                                 f1.id(),
                                 'geometry',
                                 "Doublon surfacique partiel",
-                                f1.geometry().centroid()
+                                f1.geometry().pointOnSurface()
                             ])
 
         return duplicates
@@ -118,7 +118,7 @@ class NonExactDuplicateAlgorithm(QgsProcessingAlgorithm):
                             f1.id(),
                             'geometry',
                             "Doublon surfacique partiel",
-                            f1.geometry().centroid()
+                            f1.geometry().pointOnSurface()
                         ])
 
         return duplicates

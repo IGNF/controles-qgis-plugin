@@ -96,7 +96,7 @@ class TopologicalInconsistencyAlgorithm(QgsProcessingAlgorithm):
         if inconsistencies:
             controlpoint_layer = ControlPointLayer("Incohérences topologiques")
             controlpoint_layer.add_features(inconsistencies)
-            controlpoint_layer.save()
+            controlpoint_layer.save_as_temp_layer()
 
         return {'OUTPUT': 'Traitement terminé'}
 

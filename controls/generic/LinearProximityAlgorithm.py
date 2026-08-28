@@ -77,7 +77,7 @@ class LinearProximityAlgorithm(QgsProcessingAlgorithm):
         if proximity_issues:
             controlpoint_layer = ControlPointLayer('Proximité des linéaires')
             controlpoint_layer.add_features(proximity_issues)
-            controlpoint_layer.save()
+            controlpoint_layer.save_as_temp_layer()
 
         return {'OUTPUT': 'Traitement terminé'}
 

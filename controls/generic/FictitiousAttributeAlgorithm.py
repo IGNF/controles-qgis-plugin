@@ -45,12 +45,12 @@ class FictitiousAttributeAlgorithm(QgsProcessingAlgorithm):
                         'Fictif',
                         "La valeur du champ 'Fictif' n'est pas cohérente avec la surface de l'objet {} ".format(
                             layer.name()),
-                        feature.geometry().centroid()])
+                        feature.geometry().pointOnSurface()])
 
         if fictif_attribute_feature:
             controlpoint_layer = ControlPointLayer('Enceinte/Fictif')
             controlpoint_layer.add_features(fictif_attribute_feature)
-            controlpoint_layer.save()
+            controlpoint_layer.save_as_temp_layer()
 
         return {'OUTPUT': 'Traitement terminé'}
 

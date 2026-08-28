@@ -103,13 +103,13 @@ class BuildingAltitudeAlgorithm(QgsProcessingAlgorithm):
                     feature.id(),
                     altitude_field,
                     f'{attribute_field}: {attribute_value}, {altitude_field}: {altitude}',
-                    feature.geometry().centroid()
+                    feature.geometry().pointOnSurface()
                 ])
 
         if invalid_buildings:
             controlpoint_layer = ControlPointLayer('Bâti/bâtiment')
             controlpoint_layer.add_features(invalid_buildings)
-            controlpoint_layer.save()
+            controlpoint_layer.save_as_temp_layer()
 
         return {'OUTPUT': 'Traitement terminé'}
 

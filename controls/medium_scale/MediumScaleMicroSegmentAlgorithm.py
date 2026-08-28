@@ -77,11 +77,11 @@ class MediumScaleMicroSegmentAlgorithm(QgsProcessingAlgorithm):
                                           f.id(),
                                           'geometry',
                                           "L'objet contient un micro-segment",
-                                          f.geometry().centroid()])
+                                          f.geometry().pointOnSurface()])
         if micro_segment != []:
             controlpoint_layer = ControlPointLayer('ME Géométrie - Micro-segment')
             controlpoint_layer.add_features(micro_segment)
-            controlpoint_layer.save()
+            controlpoint_layer.save_as_temp_layer()
 
         return {'OUTPUT': 'Traitement terminé'}
 

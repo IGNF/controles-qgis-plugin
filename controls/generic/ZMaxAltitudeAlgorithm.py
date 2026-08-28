@@ -68,13 +68,13 @@ class ZMaxAltitudeAlgorithm(QgsProcessingAlgorithm):
                     feature.id(),
                     'geometrie',
                     '{} avec Z > {}m'.format(layer.name(), max_altitude),
-                    feature.geometry().centroid()
+                    feature.geometry().pointOnSurface()
                 ])
 
         if invalid_objects:
             controlpoint_layer = ControlPointLayer('Altitudes hors norme')
             controlpoint_layer.add_features(invalid_objects)
-            controlpoint_layer.save()
+            controlpoint_layer.save_as_temp_layer()
 
         return {'OUTPUT': 'Traitement terminé'}
 

@@ -96,7 +96,7 @@ class NonZSectionAlgorithm(QgsProcessingAlgorithm):
         if non_z_objects:
             controlpoint_layer = ControlPointLayer('Tronçons sans Z')
             controlpoint_layer.add_features(non_z_objects)
-            controlpoint_layer.save()
+            controlpoint_layer.save_as_temp_layer()
 
         return {'OUTPUT': 'Traitement terminé'}
 

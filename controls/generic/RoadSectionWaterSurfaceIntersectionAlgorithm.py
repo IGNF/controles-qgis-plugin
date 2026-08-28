@@ -88,7 +88,7 @@ class RoadSectionWaterSurfaceIntersectionAlgorithm(QgsProcessingAlgorithm):
                                                f"{road_feature.id()} / {water_feature.id()}",
                                                'geometry',
                                                 'Ce tronçon de route est inclus dans une surface hydrographique',
-                                                road_feature.geometry().centroid()])
+                                                road_feature.geometry().pointOnSurface()])
                 elif road_feature.geometry().intersects(water_feature.geometry()):
                     intersection_geom = road_feature.geometry().intersection(water_feature.geometry())
                     intersect_features.append(['Intersection de tronçons de route avec des surfaces d’eau',
@@ -100,7 +100,7 @@ class RoadSectionWaterSurfaceIntersectionAlgorithm(QgsProcessingAlgorithm):
         if intersect_features != []:
             controlpoint_layer = ControlPointLayer('Intersection de tronçons de route avec des surfaces d’eau')
             controlpoint_layer.add_features(intersect_features)
-            controlpoint_layer.save()
+            controlpoint_layer.save_as_temp_layer()
 
         return {'OUTPUT': 'Traitement terminé'}
 

@@ -101,13 +101,13 @@ class BasinIntermittentConsistencyAlgorithm(QgsProcessingAlgorithm):
                     nature_field,
                     "Le champ Persistance des surfaces hydrographiques dont la Nature est {} doit être à {}".format(
                         selected_nature_values, selected_persistance_values),
-                    feature.geometry().centroid()
+                    feature.geometry().pointOnSurface()
                 ])
 
         if invalid_features:
             controlpoint_layer = ControlPointLayer('Cohérence Bassin / Intermittent')
             controlpoint_layer.add_features(invalid_features)
-            controlpoint_layer.save()
+            controlpoint_layer.save_as_temp_layer()
 
         return {'OUTPUT': 'Traitement terminé'}
 

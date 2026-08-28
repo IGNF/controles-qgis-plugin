@@ -96,7 +96,7 @@ class IsolatedSectionAlgorithm(QgsProcessingAlgorithm):
         if isolated_sections:
             controlpoint_layer = ControlPointLayer('Géométrie tronçons isolés')
             controlpoint_layer.add_features(isolated_sections)
-            controlpoint_layer.save()
+            controlpoint_layer.save_as_temp_layer()
 
         return {'OUTPUT': 'Traitement terminé'}
 

@@ -2,7 +2,8 @@ from qgis.core import (
 QgsProcessingAlgorithm,
 QgsProcessingParameterVectorLayer,
 QgsProcessing,
-QgsProcessingParameterFeatureSink
+QgsProcessingParameterFeatureSink,
+QgsGeometry
 )
 from ControlPointLayer import ControlPointLayer
 
@@ -38,7 +39,7 @@ class InvalidGeometryAlgorithm(QgsProcessingAlgorithm):
 
                 if error:
                     for e in error:
-                        error_location = e.where() if e.hasWhere() else geom.centroid()
+                        error_location = QgsGeometry.fromPointXY(e.where()) if e.hasWhere() else geom.centroid()
                         invalid_geometries.append([
                             'Géométrie invalide',
                             layer.name(),
@@ -60,7 +61,7 @@ class InvalidGeometryAlgorithm(QgsProcessingAlgorithm):
         if invalid_geometries:
             controlpoint_layer = ControlPointLayer('Géométrie invalide')
             controlpoint_layer.add_features(invalid_geometries)
-            controlpoint_layer.save()
+            controlpoint_layer.save_as_temp_layer()
 
         return {'OUTPUT': 'Traitement terminé'}
 

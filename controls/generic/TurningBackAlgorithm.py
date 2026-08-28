@@ -71,7 +71,7 @@ class TurningBackAlgorithm(QgsProcessingAlgorithm):
         if turning_backs:
             controlpoint_layer = ControlPointLayer('Rebroussement')
             controlpoint_layer.add_features(turning_backs)
-            controlpoint_layer.save()
+            controlpoint_layer.save_as_temp_layer()
 
         return {'OUTPUT': 'Traitement terminé'}
 
