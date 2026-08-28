@@ -1,6 +1,6 @@
 from qgis.core import (
 QgsProcessingAlgorithm,
-QgsProcessingParameterMultipleLayers,
+QgsProcessingParameterVectorLayer,
 QgsProcessing,
 QgsProcessingParameterFeatureSink,
 QgsWkbTypes
@@ -12,10 +12,10 @@ class LinearDuplicateAlgorithm(QgsProcessingAlgorithm):
 
     def initAlgorithm(self, config=None):
         self.addParameter(
-            QgsProcessingParameterMultipleLayers(
-                'INPUT_LAYERS',
-                "Couches en entrée",
-                layerType=QgsProcessing.TypeVectorLine
+            QgsProcessingParameterVectorLayer(
+                'INPUT_LAYER',
+                "Couche en entrée",
+                types=[QgsProcessing.TypeVectorLine]
             )
         )
         self.addParameter(
@@ -26,36 +26,35 @@ class LinearDuplicateAlgorithm(QgsProcessingAlgorithm):
         )
 
     def processAlgorithm(self, parameters, context, feedback):
-        layers = self.parameterAsLayerList(parameters, 'INPUT_LAYERS', context)
+        layer = self.parameterAsVectorLayer(parameters, 'INPUT_LAYER', context)
+
+        geom_type = QgsWkbTypes.geometryType(layer.wkbType())
+        if geom_type != QgsWkbTypes.LineGeometry:
+            feedback.reportError(f"{layer.name()} n'est pas linéaire")
+            return {'OUTPUT': 'Traitement terminé'}
 
         doublons = []
-        for layer in layers:
-            geom_type = QgsWkbTypes.geometryType(layer.wkbType())
-            if geom_type != QgsWkbTypes.LineGeometry:
-                feedback.reportError(f"{layer.name()} n'est pas linéaire")
+        features = list(layer.getFeatures())
+        for i, f1 in enumerate(features):
+            if not f1.geometry().isGeosValid():
                 continue
 
-            features = list(layer.getFeatures())
-            for i, f1 in enumerate(features):
-                if not f1.geometry().isGeosValid():
+            for f2 in features[i + 1:]:
+                if not f2.geometry().isGeosValid():
                     continue
 
-                for f2 in features[i + 1:]:
-                    if not f2.geometry().isGeosValid():
-                        continue
+                intersection = f1.geometry().intersection(f2.geometry())
 
-                    intersection = f1.geometry().intersection(f2.geometry())
-
-                    if not intersection.isEmpty() and intersection.type() == QgsWkbTypes.LineGeometry:
-                        if intersection.length() > 0:
-                            doublons.append([
-                                "Doublons partiels linéaire",
-                                layer.name(),
-                                f1.id(),
-                                "geometry",
-                                'Doublon partiel linéaire',
-                                intersection.centroid()
-                            ])
+                if not intersection.isEmpty() and intersection.type() == QgsWkbTypes.LineGeometry:
+                    if intersection.length() > 0:
+                        doublons.append([
+                            "Doublons partiels linéaire",
+                            layer.name(),
+                            f1.id(),
+                            "geometry",
+                            'Doublon partiel linéaire',
+                            intersection.pointOnSurface()
+                        ])
 
         if doublons:
             controlpoint_layer = ControlPointLayer("Doublons linéaires")
