@@ -3,8 +3,11 @@ QgsProcessingAlgorithm,
 QgsProcessingParameterVectorLayer,
 QgsProcessing,
 QgsProcessingParameterFeatureSink,
+QgsProcessingParameterField,
+QgsProcessingParameterNumber,
 QgsWkbTypes
 )
+from qgis.PyQt.QtCore import QVariant
 from ControlPointLayer import ControlPointLayer
 
 
@@ -19,6 +22,21 @@ class FictitiousAttributeAlgorithm(QgsProcessingAlgorithm):
             )
         )
         self.addParameter(
+            QgsProcessingParameterField(
+                'FICTIF_FIELD',
+                "Attribut fictif",
+                parentLayerParameterName='INPUT_LAYER'
+            )
+        )
+        self.addParameter(
+            QgsProcessingParameterNumber(
+                'AREA_THRESHOLD',
+                "Seuil de surface",
+                type=QgsProcessingParameterNumber.Double,
+                defaultValue=25.0
+            )
+        )
+        self.addParameter(
             QgsProcessingParameterFeatureSink(
                 'OUTPUT',
                 'Sortie'
@@ -27,24 +45,33 @@ class FictitiousAttributeAlgorithm(QgsProcessingAlgorithm):
 
     def processAlgorithm(self, parameters, context, feedback):
         layer = self.parameterAsVectorLayer(parameters, 'INPUT_LAYER', context)
+        fictif_field = self.parameterAsString(parameters, 'FICTIF_FIELD', context)
+        area_threshold = self.parameterAsDouble(parameters, 'AREA_THRESHOLD', context)
 
         fictif_attribute_feature = []
         if layer.geometryType() != QgsWkbTypes.PolygonGeometry:
             feedback.reportError(f"La couche {layer.name()} n'est pas surfacique")
             return {'OUTPUT': 'Traitement terminé'}
 
+        field = layer.fields().field(fictif_field)
+        if field.type() != QVariant.Bool:
+            feedback.reportError(
+                f"Le champ '{fictif_field}' n'est pas de type booléen (type détecté : {field.typeName()})"
+            )
+            return {'OUTPUT': 'Traitement terminé'}
+
         for feature in layer.getFeatures():
             if feature.geometry().isEmpty() or feature.geometry().isGeosValid() is False:
                 continue
-            if (feature.geometry().area() == 25 and feature['fictif'] is False) \
-                or (feature.geometry().area() != 25 and feature['fictif'] is True):
+            if (feature.geometry().area() == area_threshold and feature[fictif_field] is False) \
+                or (feature.geometry().area() != area_threshold and feature[fictif_field] is True):
                     fictif_attribute_feature.append([
                         'Enceinte/Fictif',
                         layer.name(),
                         feature.id(),
-                        'Fictif',
-                        "La valeur du champ 'Fictif' n'est pas cohérente avec la surface de l'objet {} ".format(
-                            layer.name()),
+                        fictif_field,
+                        "La valeur du champ '{}' n'est pas cohérente avec la surface de l'objet {} ".format(
+                            fictif_field, layer.name()),
                         feature.geometry().pointOnSurface()])
 
         if fictif_attribute_feature:
