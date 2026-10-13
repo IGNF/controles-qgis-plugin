@@ -34,9 +34,9 @@ class SelfIntersectionAlgorithm(QgsProcessingAlgorithm):
             return {'OUTPUT': 'Traitement terminé'}
 
         for feature in layer.getFeatures():
-            if feature.geometry().isEmpty() or not feature.geometry().isGeosValid():
-                continue
             geom = feature.geometry()
+            if geom.isEmpty() or geom.isNull():
+                continue
             if not geom.isSimple():
                 self_intersection_issues.append([
                     'Auto-intersection',
@@ -44,7 +44,7 @@ class SelfIntersectionAlgorithm(QgsProcessingAlgorithm):
                     feature.id(),
                     'geometry',
                     'Objet auto-intersectant',
-                    geom.centroid()
+                    geom.pointOnSurface()
                 ])
 
         if self_intersection_issues:
