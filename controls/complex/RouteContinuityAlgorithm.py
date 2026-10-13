@@ -94,9 +94,9 @@ class RouteContinuityAlgorithm(QgsProcessingAlgorithm):
                     vertices = list(geom.vertices())
 
                     if endpoint_type == 'start':
-                        endpoint_geom = QgsGeometry.fromPointXY(vertices[0])
+                        endpoint_geom = QgsGeometry.fromPoint(vertices[0])
                     else:
-                        endpoint_geom = QgsGeometry.fromPointXY(vertices[-1])
+                        endpoint_geom = QgsGeometry.fromPoint(vertices[-1])
 
                     invalid_objects.append([
                         'Continuité de l’Itinéraire FFR',

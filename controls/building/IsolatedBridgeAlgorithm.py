@@ -3,10 +3,10 @@ QgsProcessingAlgorithm,
 QgsProcessingParameterVectorLayer,
 QgsProcessing,
 QgsProcessingParameterField,
-QgsProcessingParameterEnum,
 QgsProcessingParameterFeatureSink
 )
 from ControlPointLayer import ControlPointLayer
+from FieldValuesParameter import QgsProcessingParameterFieldValues, field_values_as_string_list
 
 class IsolatedBridgeAlgorithm(QgsProcessingAlgorithm):
 
@@ -22,8 +22,7 @@ class IsolatedBridgeAlgorithm(QgsProcessingAlgorithm):
             QgsProcessingParameterField(
                 'POSITION_FIELD',
                 'Champ Position par rapport au sol',
-                parentLayerParameterName='ROAD_LAYER',
-                type=QgsProcessingParameterField.Numeric
+                parentLayerParameterName='ROAD_LAYER'
             )
         )
         self.addParameter(
@@ -42,18 +41,21 @@ class IsolatedBridgeAlgorithm(QgsProcessingAlgorithm):
             )
         )
         self.addParameter(
-            QgsProcessingParameterEnum(
+            QgsProcessingParameterFieldValues(
                 'BRIDGE_VALUE',
                 'Valeur Pont',
-                options=[],
-                allowMultiple=False
+                parentLayerParameterName='CONSTRUCTION_LAYER',
+                parentFieldParameterName='NATURE_FIELD',
+                allowMultiple=False,
+                optional=False
             )
         )
         self.addParameter(
-            QgsProcessingParameterEnum(
+            QgsProcessingParameterFieldValues(
                 'TUNNEL_VALUE',
                 'Valeur Tunnel (optionnel)',
-                options=[],
+                parentLayerParameterName='CONSTRUCTION_LAYER',
+                parentFieldParameterName='NATURE_FIELD',
                 allowMultiple=False,
                 optional=True
             )
@@ -71,16 +73,15 @@ class IsolatedBridgeAlgorithm(QgsProcessingAlgorithm):
         construction_layer = self.parameterAsVectorLayer(parameters, 'CONSTRUCTION_LAYER', context)
         nature_field = self.parameterAsString(parameters, 'NATURE_FIELD', context)
 
-        # Récupérer les valeurs uniques du champ Nature
-        nature_values = list(
-            set([f[nature_field] for f in construction_layer.getFeatures() if f[nature_field] is not None]))
+        # Valeur Pont sélectionnée dynamiquement via le widget (champ 'field_values')
+        raw_bridge_value = self.parameterAsString(parameters, 'BRIDGE_VALUE', context)
+        bridge_values = field_values_as_string_list(raw_bridge_value)
+        bridge_value = bridge_values[0] if bridge_values else None
 
-        # Récupérer les indices sélectionnés
-        bridge_idx = self.parameterAsEnum(parameters, 'BRIDGE_VALUE', context)
-        tunnel_idx = self.parameterAsEnum(parameters, 'TUNNEL_VALUE', context)
-
-        bridge_value = nature_values[bridge_idx] if bridge_idx < len(nature_values) else None
-        tunnel_value = nature_values[tunnel_idx] if tunnel_idx is not None and tunnel_idx < len(nature_values) else None
+        # Valeur Tunnel sélectionnée dynamiquement via le widget (champ 'field_values')
+        raw_tunnel_value = self.parameterAsString(parameters, 'TUNNEL_VALUE', context)
+        tunnel_values = field_values_as_string_list(raw_tunnel_value)
+        tunnel_value = tunnel_values[0] if tunnel_values else None
 
         issues = []
         distance_threshold = 0.5  # 50 cm en mètres
@@ -91,16 +92,21 @@ class IsolatedBridgeAlgorithm(QgsProcessingAlgorithm):
 
         for construction in construction_layer.getFeatures():
             nature = construction.attribute(nature_field)
-            if nature == bridge_value:
+            if bridge_value is not None and str(nature) == str(bridge_value):
                 bridges.append(construction)
-            elif tunnel_value and nature == tunnel_value:
+            elif tunnel_value is not None and str(nature) == str(tunnel_value):
                 tunnels.append(construction)
 
         # Vérifier les tronçons de route
         for road in road_layer.getFeatures():
             position = road.attribute(position_field)
 
-            if position is None:
+            if position is None or position == '':
+                continue
+
+            try:
+                position = float(position)
+            except (TypeError, ValueError):
                 continue
 
             road_geom = road.geometry()

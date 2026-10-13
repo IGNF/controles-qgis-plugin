@@ -3,14 +3,15 @@ from qgis.core import (
     QgsProcessingParameterVectorLayer,
     QgsProcessing,
     QgsProcessingParameterField,
-    QgsProcessingParameterEnum,
+    QgsProcessingParameterNumber,
     QgsProcessingParameterFeatureSink,
     QgsFeatureRequest,
-QgsPoint,
+QgsPointXY,
 QgsSpatialIndex,
 QgsGeometry
 )
 from ControlPointLayer import ControlPointLayer
+from FieldValuesParameter import QgsProcessingParameterFieldValues, field_values_as_string_list
 
 
 class ZMaxAltitudeAlgorithm(QgsProcessingAlgorithm):
@@ -34,17 +35,26 @@ class ZMaxAltitudeAlgorithm(QgsProcessingAlgorithm):
             QgsProcessingParameterField(
                 'ATTRIBUTE_FIELD',
                 'Attribut à vérifier',
-                parentLayerParameterName='INPUT_LAYER',
+                parentLayerParameterName='PYLON_LAYER',
                 type=QgsProcessingParameterField.Any
             )
         )
         self.addParameter(
-            QgsProcessingParameterEnum(
+            QgsProcessingParameterFieldValues(
                 'ATTRIBUTE_VALUES',
                 'Valeurs à contrôler',
-                options=[],
+                parentLayerParameterName='PYLON_LAYER',
+                parentFieldParameterName='ATTRIBUTE_FIELD',
                 allowMultiple=True,
                 optional=False
+            )
+        )
+        self.addParameter(
+            QgsProcessingParameterNumber(
+                'DISTANCE_THRESHOLD',
+                'Distance seuil (m)',
+                type=QgsProcessingParameterNumber.Double,
+                defaultValue=10
             )
         )
         self.addParameter(
@@ -59,7 +69,10 @@ class ZMaxAltitudeAlgorithm(QgsProcessingAlgorithm):
         line_layer = self.parameterAsVectorLayer(parameters, 'LINE_LAYER', context)
         distance_threshold = self.parameterAsDouble(parameters, 'DISTANCE_THRESHOLD', context)
         attribute_field = self.parameterAsString(parameters, 'ATTRIBUTE_FIELD', context)
-        attribute_values = self.parameterAsEnums(parameters, 'ATTRIBUTE_VALUES', context)
+
+        # Valeurs sélectionnées dynamiquement via le widget (stockées en chaîne séparée par des virgules)
+        raw_attribute_values = self.parameterAsString(parameters, 'ATTRIBUTE_VALUES', context)
+        attribute_values = field_values_as_string_list(raw_attribute_values)
 
         invalid_objects = []
 
@@ -72,13 +85,14 @@ class ZMaxAltitudeAlgorithm(QgsProcessingAlgorithm):
 
             vertices = list(geom.vertices())
             for vertex in vertices[1:-1]:
-                intermediate_points.append((QgsPoint(vertex), line_feature))
+                # geom.vertices() retourne déjà des QgsPoint : pas besoin de reconstruire
+                intermediate_points.append((vertex, line_feature))
 
         # Créer un index spatial pour les points intermédiaires
         spatial_index = QgsSpatialIndex()
         intermediate_dict = {}
         for idx, (point, line_feature) in enumerate(intermediate_points):
-            point_geom = QgsGeometry.fromPointXY(point)
+            point_geom = QgsGeometry.fromPointXY(QgsPointXY(point.x(), point.y()))
             spatial_index.addFeature(idx, point_geom.boundingBox())
             intermediate_dict[idx] = (point, line_feature)
 
@@ -89,7 +103,10 @@ class ZMaxAltitudeAlgorithm(QgsProcessingAlgorithm):
                 continue
 
             pylon_point = pylon_geom.asPoint()
-            acquisition_method = pylon_feature.get(attribute_field, '')
+            if attribute_field and attribute_field in pylon_feature.fields().names():
+                acquisition_method = str(pylon_feature[attribute_field])
+            else:
+                acquisition_method = ''
 
             # Trouver les points intermédiaires proches
             nearby_ids = spatial_index.nearestNeighbor(pylon_point, 1)
@@ -142,7 +159,12 @@ class ZMaxAltitudeAlgorithm(QgsProcessingAlgorithm):
                 ])
 
         # Contrôle d) : Points intermédiaires sans pylône dans un rayon de 10m
+        flagged_line_ids = set()
+
         for idx, (inter_point, line_feature) in intermediate_dict.items():
+            if line_feature.id() in flagged_line_ids:
+                continue
+
             has_nearby_pylon = False
             for pylon_feature in pylon_layer.getFeatures():
                 pylon_geom = pylon_feature.geometry()
@@ -156,13 +178,14 @@ class ZMaxAltitudeAlgorithm(QgsProcessingAlgorithm):
                     break
 
             if not has_nearby_pylon:
+                flagged_line_ids.add(line_feature.id())
                 invalid_objects.append([
                     "Recherche d'incohérence géométrique entre pylône et point intermédiaire de la ligne éléctrique",
                     line_layer.name(),
                     line_feature.id(),
                     'geometrie',
                     "Le point intermédiaire de la ligne électrique n'a pas de pylône situé à moins de 10 m",
-                    QgsGeometry.fromPointXY(inter_point)
+                    QgsGeometry.fromPointXY(QgsPointXY(inter_point.x(), inter_point.y()))
                 ])
 
         if invalid_objects:

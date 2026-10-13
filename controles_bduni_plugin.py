@@ -199,6 +199,15 @@ class ControlesBDUniPlugin:
         # Initialiser et enregistrer le provider de processing via le script
         self.initProcessing()
 
+        # Enregistrer le widget GUI dynamique pour les paramètres 'field_values'
+        try:
+            from FieldValuesWidget import register_field_values_widget
+            register_field_values_widget()
+        except Exception as e:
+            logging.basicConfig(level=logging.DEBUG,
+                                filename=os.path.join(self.plugin_dir, 'controls.log'))
+            logging.error(f"Erreur lors de l'enregistrement du widget field_values: {e}")
+
     def initProcessing(self):
         """Initialise le provider de processing via le script load_controls_processing"""
         global _provider_instance
@@ -231,6 +240,13 @@ class ControlesBDUniPlugin:
         # Désenregistrer le provider via le script
         if hasattr(self, '_load_controls_module'):
             self._load_controls_module.unload_controles_bduni_processing()
+
+        # Désenregistrer le widget GUI dynamique
+        try:
+            from FieldValuesWidget import unregister_field_values_widget
+            unregister_field_values_widget()
+        except Exception:
+            pass
 
         # Nettoyer les références
         self.provider = None
@@ -291,6 +307,15 @@ class ControlesBDUniPlugin:
                 has_json = any(isinstance(p, QgsProcessingParameterFile) and p.name() == 'PARAM_JSON'
                                for p in param_defs)
 
+                # Paramètres nécessitant une saisie interactive de l'utilisateur
+                # (champ à vérifier, valeurs à contrôler, seuils, etc.)
+                vector_param_names = {p.name() for p in vector_params}
+                extra_param_names = {
+                    p.name() for p in param_defs
+                    if p.name() not in vector_param_names and p.name() not in ('PARAM_JSON', 'OUTPUT')
+                }
+                needs_interactive_dialog = len(extra_param_names) > 0
+
                 result = None
 
                 if len(vector_params) == 1:
@@ -299,7 +324,10 @@ class ControlesBDUniPlugin:
                         params = {vector_params[0].name(): layer}
                         if has_json:
                             params['PARAM_JSON'] = json_path
-                        result = algo.processAlgorithm(params, context, feedback)
+                        if needs_interactive_dialog:
+                            self._run_algorithm_interactively(algo, params, control_name)
+                        else:
+                            result = algo.processAlgorithm(params, context, feedback)
 
                 elif len(vector_params) > 1:
                     # Cas multi-couches : assigner les couches sélectionnées dans l'ordre des paramètres
@@ -314,7 +342,10 @@ class ControlesBDUniPlugin:
                     params = {p.name(): layers[i] for i, p in enumerate(vector_params)}
                     if has_json:
                         params['PARAM_JSON'] = json_path
-                    result = algo.processAlgorithm(params, context, feedback)
+                    if needs_interactive_dialog:
+                        self._run_algorithm_interactively(algo, params, control_name)
+                    else:
+                        result = algo.processAlgorithm(params, context, feedback)
 
                 if result is not None:
                     self.iface.messageBar().pushMessage("Info",
@@ -328,6 +359,23 @@ class ControlesBDUniPlugin:
                 self.iface.messageBar().pushMessage("Erreur",
                                                     f"Erreur lors de l'exécution de {control_name}: {str(e)}",
                                                     level=Qgis.Warning, duration=10)
+
+    def _run_algorithm_interactively(self, algo, params, control_name):
+        """Ouvre le dialogue natif de Processing (préfilli avec les couches déjà
+        sélectionnées dans le dialogue du plugin) pour les contrôles nécessitant
+        une configuration interactive supplémentaire (champ à vérifier, valeurs à
+        contrôler, seuils, etc.). Permet notamment au widget dynamique de
+        sélection de valeurs (FieldValuesWidget) de fonctionner."""
+        try:
+            import processing
+            processing.execAlgorithmDialog(algo.id(), params)
+        except Exception as e:
+            logging.basicConfig(level=logging.DEBUG,
+                                filename=os.path.join(self.plugin_dir, 'controls.log'))
+            logging.error(f"Erreur lors de l'ouverture du dialogue interactif pour {control_name}: {e}")
+            self.iface.messageBar().pushMessage("Erreur",
+                                                f"Impossible d'ouvrir le dialogue pour {control_name}: {str(e)}",
+                                                level=Qgis.Warning, duration=10)
 
 
     def run(self):
