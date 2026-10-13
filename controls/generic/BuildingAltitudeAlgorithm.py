@@ -2,15 +2,15 @@ from qgis.core import (
     QgsProcessingAlgorithm,
     QgsProcessingParameterVectorLayer,
     QgsProcessingParameterField,
-    QgsProcessingParameterEnum,
     QgsProcessingParameterNumber,
     QgsProcessing,
     QgsProcessingParameterFile,
     QgsProcessingParameterFeatureSink,
-    QgsFeatureRequest
+    QgsFeatureRequest,
+    NULL
 )
 from ControlPointLayer import ControlPointLayer
-import json
+from FieldValuesParameter import QgsProcessingParameterFieldValues, field_values_as_string_list
 
 
 class BuildingAltitudeAlgorithm(QgsProcessingAlgorithm):
@@ -32,10 +32,11 @@ class BuildingAltitudeAlgorithm(QgsProcessingAlgorithm):
             )
         )
         self.addParameter(
-            QgsProcessingParameterEnum(
+            QgsProcessingParameterFieldValues(
                 'ATTRIBUTE_VALUES',
                 'Valeurs à contrôler',
-                options=[],
+                parentLayerParameterName='INPUT_LAYER',
+                parentFieldParameterName='ATTRIBUTE_FIELD',
                 allowMultiple=True,
                 optional=False
             )
@@ -69,13 +70,9 @@ class BuildingAltitudeAlgorithm(QgsProcessingAlgorithm):
         altitude_field = self.parameterAsString(parameters, 'ALTITUDE_FIELD', context)
         altitude_value = self.parameterAsDouble(parameters, 'ALTITUDE_VALUE', context)
 
-        # Récupérer les valeurs uniques de l'attribut
-        unique_values = layer.uniqueValues(layer.fields().indexFromName(attribute_field))
-        unique_values_list = sorted([str(v) for v in unique_values if v is not None])
-
-        # Récupérer les indices des valeurs sélectionnées
-        selected_indices = self.parameterAsEnums(parameters, 'ATTRIBUTE_VALUES', context)
-        selected_values = [unique_values_list[i] for i in selected_indices]
+        # Valeurs sélectionnées dynamiquement via le widget (stockées en chaîne séparée par des virgules)
+        raw_attribute_values = self.parameterAsString(parameters, 'ATTRIBUTE_VALUES', context)
+        selected_values = field_values_as_string_list(raw_attribute_values)
 
         if attribute_field not in layer.fields().names():
             feedback.reportError(f"L'attribut '{attribute_field}' n'existe pas dans la couche")
@@ -89,20 +86,20 @@ class BuildingAltitudeAlgorithm(QgsProcessingAlgorithm):
         for feature in layer.getFeatures():
             attribute_value = str(feature[attribute_field])
 
-            # Vérifier si la valeur de l'attribut N'est PAS dans les valeurs sélectionnées
-            if attribute_value in selected_values:
+            # Vérifier si la valeur de l'attribut est dans les valeurs sélectionnées
+            if attribute_value not in selected_values:
                 continue
 
             altitude = feature[altitude_field]
 
             # Vérifier si l'altitude est vide ou égale à la valeur invalide
-            if altitude is None or altitude == altitude_value:
+            if altitude is None or altitude == altitude_value or altitude == NULL:
                 invalid_buildings.append([
                     'Bâti/bâtiment',
                     layer.name(),
                     feature.id(),
                     altitude_field,
-                    f'{attribute_field}: {attribute_value}, {altitude_field}: {altitude}',
+                    'Le champ "Altitude minimale sol" doit être différent de "-100" ou de vide" ',
                     feature.geometry().pointOnSurface()
                 ])
 

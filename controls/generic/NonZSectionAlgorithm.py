@@ -4,10 +4,10 @@ QgsProcessingParameterVectorLayer,
 QgsProcessingParameterField,
 QgsProcessing,
 QgsProcessingParameterFeatureSink,
-QgsProcessingParameterEnum,
-QgsPoint
+NULL
 )
 from ControlPointLayer import ControlPointLayer
+from FieldValuesParameter import QgsProcessingParameterFieldValues, field_values_as_string_list
 
 class NonZSectionAlgorithm(QgsProcessingAlgorithm):
 
@@ -28,12 +28,21 @@ class NonZSectionAlgorithm(QgsProcessingAlgorithm):
             )
         )
         self.addParameter(
-            QgsProcessingParameterEnum(
+            QgsProcessingParameterFieldValues(
                 'ATTRIBUTE_VALUES',
                 'Valeurs à contrôler',
-                options=[],
+                parentLayerParameterName='INPUT_LAYER',
+                parentFieldParameterName='ATTRIBUTE_FIELD',
                 allowMultiple=True,
                 optional=False
+            )
+        )
+        self.addParameter(
+            QgsProcessingParameterField(
+                'Z_FIELD',
+                'Champ Z à vérifier',
+                parentLayerParameterName='INPUT_LAYER',
+                type=QgsProcessingParameterField.Any
             )
         )
         self.addParameter(
@@ -46,51 +55,38 @@ class NonZSectionAlgorithm(QgsProcessingAlgorithm):
     def processAlgorithm(self, parameters, context, feedback):
         layer = self.parameterAsVectorLayer(parameters, 'INPUT_LAYER', context)
         attribute_field = self.parameterAsString(parameters, 'ATTRIBUTE_FIELD', context)
+        z_field = self.parameterAsString(parameters, 'Z_FIELD', context)
 
-        # Récupérer les valeurs uniques de l'attribut pour construire les options
-        unique_values = layer.uniqueValues(layer.fields().indexFromName(attribute_field))
-        unique_values_list = sorted([str(v) for v in unique_values if v is not None])
-
-        # Récupérer les indices des valeurs sélectionnées
-        selected_indices = self.parameterAsEnums(parameters, 'ATTRIBUTE_VALUES', context)
-        selected_values = [unique_values_list[i] for i in selected_indices]
+        # Valeurs sélectionnées dynamiquement via le widget (stockées en chaîne séparée par des virgules)
+        raw_attribute_values = self.parameterAsString(parameters, 'ATTRIBUTE_VALUES', context)
+        selected_values = field_values_as_string_list(raw_attribute_values)
 
         if attribute_field not in layer.fields().names():
             feedback.reportError(f"L'attribut '{attribute_field}' n'existe pas dans la couche {layer.name()}")
             return {'OUTPUT': 'Erreur'}
 
+        if z_field not in layer.fields().names():
+            feedback.reportError(f"Le champ Z '{z_field}' n'existe pas dans la couche {layer.name()}")
+            return {'OUTPUT': 'Erreur'}
+
         non_z_objects = []
 
         for feature in layer.getFeatures():
-            geom = feature.geometry()
-
-            if geom.isEmpty() or not geom.isGeosValid():
-                continue
 
             # Vérifier la valeur de l'attribut
             attribute_value = str(feature[attribute_field])
             if attribute_value not in selected_values:
                 continue
 
-            # Vérifier si au moins un Z est vide (None ou NaN)
-            has_empty_z = False
-            vertices = geom.vertices()
-
-            while vertices.hasNext():
-                vertex = vertices.next()
-                if vertex.z() is None or vertex.z() != vertex.z():  # NaN check
-                    has_empty_z = True
-                    empty_z_point = QgsPoint(vertex.x(), vertex.y())
-                    break
-
-            if has_empty_z:
+            z_value = feature[z_field]
+            if z_value is None or z_value == NULL:
                 non_z_objects.append([
                     'Tronçon sans Z',
                     layer.name(),
                     feature.id(),
-                    'geometrie',
-                    f"L'objet comporte au moins 1 point sans Z ({attribute_field}={attribute_value})",
-                    empty_z_point
+                    z_field,
+                    f"L'objet comporte un champ Z vide ({attribute_field}={attribute_value})",
+                    feature.geometry().pointOnSurface()
                 ])
 
         if non_z_objects:
