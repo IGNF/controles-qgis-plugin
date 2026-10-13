@@ -4,6 +4,7 @@ QgsProcessingParameterVectorLayer,
 QgsProcessing,
 QgsProcessingParameterFeatureSink,
 QgsWkbTypes,
+QgsGeometry,
 )
 from ControlPointLayer import ControlPointLayer
 
@@ -34,74 +35,72 @@ class ExternalHoleAlgorithm(QgsProcessingAlgorithm):
             return {'OUTPUT': 'Traitement terminé'}
 
         for feature in layer.getFeatures():
-            if feature.geometry().isEmpty() or not feature.geometry().isGeosValid():
+            geom = feature.geometry()
+            if geom.isEmpty():
                 continue
 
-            geom = feature.geometry()
-
-            # Vérifier les multi-surfaces (surfaces composées de polygones disjoints)
             if geom.isMultipart():
-                parts = geom.asMultiPolygon()
-                if len(parts) > 1:
-                    # Vérifier si les parties sont disjointes
-                    are_disjoint = True
-                    for i in range(len(parts)):
-                        for j in range(i + 1, len(parts)):
-                            poly_i = QgsGeometry.fromPolygonXY(parts[i])
-                            poly_j = QgsGeometry.fromPolygonXY(parts[j])
-                            if poly_i.intersects(poly_j):
-                                are_disjoint = False
-                                break
-                        if not are_disjoint:
-                            break
+                polygons = geom.asMultiPolygon()
+            else:
+                polygons = [geom.asPolygon()]
 
-                    if are_disjoint:
+            # 1. Multi-surfaces : surface composée de plusieurs polygones disjoints
+            if len(polygons) > 1:
+                parts_geom = [QgsGeometry.fromPolygonXY(part) for part in polygons]
+                are_disjoint = True
+                for i in range(len(parts_geom)):
+                    for j in range(i + 1, len(parts_geom)):
+                        if parts_geom[i].intersects(parts_geom[j]):
+                            are_disjoint = False
+                            break
+                    if not are_disjoint:
+                        break
+
+                if not are_disjoint:
+                    issues.append([
+                        'Recherche des trous externes',
+                        layer.name(),
+                        feature.id(),
+                        'geometry',
+                        'La surface est composée de plusieurs polygones disjoints (multi-surface)',
+                        geom.pointOnSurface()
+                    ])
+
+            # 2. & 3. Analyse des trous (anneaux intérieurs) de chaque partie
+            for polygon in polygons:
+                if len(polygon) <= 1:
+                    continue  # pas de trou dans cette partie
+
+                exterior_ring = QgsGeometry.fromPolygonXY([polygon[0]])
+
+                for ring_idx in range(1, len(polygon)):
+                    interior_ring = polygon[ring_idx]
+                    ring_geom = QgsGeometry.fromPolygonXY([interior_ring])
+
+                    # Trou défini par seulement 3 points (le 4e point ferme
+                    # l'anneau) formant un polygone plat, difficile à voir
+                    if len(interior_ring) <= 4:
                         issues.append([
                             'Recherche des trous externes',
                             layer.name(),
                             feature.id(),
                             'geometry',
-                            'La surface a des trous externes',
-                            geom.centroid()
+                            "Le trou est défini par seulement trois points et forme un polygone plat",
+                            ring_geom.pointOnSurface()
                         ])
-            else:
-                # Traiter les polygones simples
-                polygon = geom.asPolygon()
+                        continue
 
-                if len(polygon) > 1:
-                    # Il y a des trous (rings intérieurs)
-                    exterior_ring = QgsGeometry.fromPolygonXY([polygon[0]])
-
-                    for ring_idx in range(1, len(polygon)):
-                        interior_ring = polygon[ring_idx]
-
-                        # Vérifier si le trou a seulement 3 points (polygone plat)
-                        if len(interior_ring) == 4:  # 4 points car le dernier = le premier
-                            ring_geom = QgsGeometry.fromPolygonXY([interior_ring])
-                            if ring_geom.area() < 0.0001:  # Seuil pour polygone plat
-                                issues.append([
-                                    'Recherche des trous externes',
-                                    layer.name(),
-                                    feature.id(),
-                                    'geometry',
-                                    'La surface a des trous externes',
-                                    ring_geom.centroid()
-                                ])
-                                continue
-
-                        # Vérifier si le trou est à l'extérieur de la surface
-                        ring_geom = QgsGeometry.fromPolygonXY([interior_ring])
-                        ring_centroid = ring_geom.centroid()
-
-                        if not exterior_ring.contains(ring_centroid):
-                            issues.append([
-                                'Recherche des trous externes',
-                                layer.name(),
-                                feature.id(),
-                                'geometry',
-                                'La surface a des trous externes',
-                                ring_centroid
-                            ])
+                    # Trou apparaissant à l'extérieur de la surface
+                    ring_centroid = ring_geom.pointOnSurface()
+                    if not exterior_ring.contains(ring_centroid):
+                        issues.append([
+                            'Recherche des trous externes',
+                            layer.name(),
+                            feature.id(),
+                            'geometry',
+                            "Le trou apparaît à l'extérieur de la surface",
+                            ring_centroid
+                        ])
 
         if issues:
             controlpoint_layer = ControlPointLayer('Recherche des trous externes')
