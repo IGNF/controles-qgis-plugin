@@ -14,7 +14,7 @@ from ControlPointLayer import ControlPointLayer
 import json
 
 
-class BuildingResidentialZoneProximity(QgsProcessingAlgorithm):
+class BuildingResidentialZoneProximityAlgorithm(QgsProcessingAlgorithm):
 
 
     def name(self):
@@ -42,7 +42,7 @@ class BuildingResidentialZoneProximity(QgsProcessingAlgorithm):
 
     def createInstance(self):
         """Crée une nouvelle instance de l'algorithme"""
-        return BuildingResidentialZoneProximity()
+        return BuildingResidentialZoneProximityAlgorithm()
 
     def initAlgorithm(self, config=None):
         self.addParameter(
