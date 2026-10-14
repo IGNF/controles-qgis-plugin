@@ -2,7 +2,7 @@ from qgis.core import (
 QgsProcessingAlgorithm,
 QgsProcessingParameterVectorLayer,
 QgsProcessing,
-QgsProcessingParameterFile,
+QgsProcessingParameterNumber,
 QgsProcessingParameterFeatureSink,
 QgsWkbTypes,
 QgsGeometry
@@ -19,14 +19,16 @@ class MediumScaleMicroSegmentAlgorithm(QgsProcessingAlgorithm):
             QgsProcessingParameterVectorLayer(
                 'INPUT_LAYER',
                 "Couche en entrée",
-                types=[QgsProcessing.TypeVectorLine, QgsProcessing.TypeVectorPolygon]
+                types=[QgsProcessing.TypeVectorAnyGeometry]
             )
         )
         self.addParameter(
-            QgsProcessingParameterFile(
-                'PARAM_JSON',
-                'Paramètres JSON',
-                extension='json'
+            QgsProcessingParameterNumber(
+                'THRESHOLD',
+                'Taille minimale de segment (m)',
+                type=QgsProcessingParameterNumber.Double,
+                defaultValue=0.1,
+                minValue=0.0
             )
         )
         self.addParameter(
@@ -38,20 +40,13 @@ class MediumScaleMicroSegmentAlgorithm(QgsProcessingAlgorithm):
 
     def processAlgorithm(self, parameters, context, feedback):
         layer = self.parameterAsVectorLayer(parameters, 'INPUT_LAYER', context)
-        json_path = self.parameterAsFile(parameters, 'PARAM_JSON', context)
-
-        with open(json_path, "r", encoding="utf-8") as f:
-            param_json = json.load(f)
+        taille_mini = self.parameterAsDouble(parameters, 'THRESHOLD', context)
 
         micro_segment = []
-        if layer.name() not in param_json.keys():
-            feedback.reportError('{} not in param.json'.format(layer.name()))
-            return {'OUTPUT': 'Traitement terminé'}
         geom_type = QgsWkbTypes.geometryType(layer.wkbType())
         if geom_type not in [QgsWkbTypes.LineGeometry, QgsWkbTypes.PolygonGeometry]:
             feedback.reportError(f"{layer.name()} n'est ni linéaire ni surfacique")
             return {'OUTPUT': 'Traitement terminé'}
-        taille_mini = param_json[layer.name()]
         for f in layer.getFeatures():
             if not f.geometry().isGeosValid():
                 continue
