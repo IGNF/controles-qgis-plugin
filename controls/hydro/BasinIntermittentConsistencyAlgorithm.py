@@ -2,11 +2,11 @@ from qgis.core import (
     QgsProcessingAlgorithm,
     QgsProcessingParameterVectorLayer,
     QgsProcessingParameterField,
-    QgsProcessingParameterEnum,
     QgsProcessing,
     QgsProcessingParameterFeatureSink
 )
 from ControlPointLayer import ControlPointLayer
+from FieldValuesParameter import QgsProcessingParameterFieldValues, field_values_as_string_list
 
 
 class BasinIntermittentConsistencyAlgorithm(QgsProcessingAlgorithm):
@@ -28,10 +28,11 @@ class BasinIntermittentConsistencyAlgorithm(QgsProcessingAlgorithm):
             )
         )
         self.addParameter(
-            QgsProcessingParameterEnum(
+            QgsProcessingParameterFieldValues(
                 'NATURE_VALUES',
                 'Valeurs Nature à contrôler',
-                options=[],
+                parentLayerParameterName='INPUT_LAYER',
+                parentFieldParameterName='NATURE_FIELD',
                 allowMultiple=True,
                 optional=False
             )
@@ -45,10 +46,11 @@ class BasinIntermittentConsistencyAlgorithm(QgsProcessingAlgorithm):
             )
         )
         self.addParameter(
-            QgsProcessingParameterEnum(
+            QgsProcessingParameterFieldValues(
                 'PERSISTANCE_VALUES',
                 'Valeurs Persistance à contrôler',
-                options=[],
+                parentLayerParameterName='INPUT_LAYER',
+                parentFieldParameterName='PERSISTANCE_FIELD',
                 allowMultiple=True,
                 optional=False
             )
@@ -74,19 +76,12 @@ class BasinIntermittentConsistencyAlgorithm(QgsProcessingAlgorithm):
             feedback.reportError(f"Le champ Persistance '{persistance_field}' n'existe pas dans la couche")
             return {'OUTPUT': 'Erreur'}
 
-        # Valeurs uniques triées pour Nature
-        nature_unique = sorted(
-            [str(v) for v in layer.uniqueValues(layer.fields().indexFromName(nature_field)) if v is not None]
-        )
-        selected_nature_indices = self.parameterAsEnums(parameters, 'NATURE_VALUES', context)
-        selected_nature_values = [nature_unique[i] for i in selected_nature_indices]
+        # Valeurs sélectionnées dynamiquement via le widget (stockées en chaîne séparée par des virgules)
+        raw_nature_values = self.parameterAsString(parameters, 'NATURE_VALUES', context)
+        selected_nature_values = field_values_as_string_list(raw_nature_values)
 
-        # Valeurs uniques triées pour Persistance
-        persistance_unique = sorted(
-            [str(v) for v in layer.uniqueValues(layer.fields().indexFromName(persistance_field)) if v is not None]
-        )
-        selected_persistance_indices = self.parameterAsEnums(parameters, 'PERSISTANCE_VALUES', context)
-        selected_persistance_values = [persistance_unique[i] for i in selected_persistance_indices]
+        raw_persistance_values = self.parameterAsString(parameters, 'PERSISTANCE_VALUES', context)
+        selected_persistance_values = field_values_as_string_list(raw_persistance_values)
 
         invalid_features = []
         for feature in layer.getFeatures():
