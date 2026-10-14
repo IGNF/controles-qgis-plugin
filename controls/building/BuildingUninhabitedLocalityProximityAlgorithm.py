@@ -73,8 +73,7 @@ class BuildingUninhabitedLocalityProximityAlgorithm(QgsProcessingAlgorithm):
             QgsProcessingParameterVectorLayer(
                 'BUILDING_LAYERS',
                 "Couches Bâti ou Construction linéaire",
-                types=[QgsProcessing.TypeVectorAnyGeometry],
-                optional=True
+                types=[QgsProcessing.TypeVectorAnyGeometry]
             )
         )
         self.addParameter(
