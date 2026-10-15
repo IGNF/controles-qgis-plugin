@@ -3,7 +3,9 @@ from qgis.core import (
     QgsProcessingParameterVectorLayer,
     QgsProcessingParameterField,
     QgsProcessing,
-    QgsProcessingParameterFeatureSink
+    QgsProcessingParameterFeatureSink,
+    QgsGeometry,
+    QgsPointXY
 )
 from ControlPointLayer import ControlPointLayer
 
@@ -137,14 +139,19 @@ class WatercourseContinuityAlgorithm(QgsProcessingAlgorithm):
                 error_message = "Le cours d'eau comprend plus de deux extrémités"
 
             if error_message:
-                invalid_features.append([
-                    "Continuité des cours d'eau",
-                    complex_layer.name(),
-                    complex_feature.id(),
-                    complex_key_field,
-                    error_message,
-                    complex_feature.geometry()
-                ])
+                # Placer un point d'erreur sur chaque extrémité libre (degré 1) du graphe,
+                # qui matérialise la discontinuité ou la ramification détectée.
+                for point_key, connections in endpoints.items():
+                    if len(connections) == 1:
+                        endpoint_geom = QgsGeometry.fromPointXY(QgsPointXY(point_key[0], point_key[1]))
+                        invalid_features.append([
+                            "Continuité des cours d'eau",
+                            complex_layer.name(),
+                            complex_feature.id(),
+                            complex_key_field,
+                            error_message,
+                            endpoint_geom
+                        ])
 
         if invalid_features:
             controlpoint_layer = ControlPointLayer("Continuité des cours d'eau")
