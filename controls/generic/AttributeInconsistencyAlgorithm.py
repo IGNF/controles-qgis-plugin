@@ -1,91 +1,67 @@
 from qgis.core import (
-    QgsProcessingAlgorithm,
     QgsProcessingParameterVectorLayer,
     QgsProcessing,
     QgsProcessingParameterFile,
-    QgsProcessingParameterFeatureSink,
     QgsFeatureRequest
 )
-from ControlPointLayer import ControlPointLayer
-import json
+
+from BaseControlAlgorithm import BaseControlAlgorithm
 
 
-class AttributesInconsistencyAlgorithm(QgsProcessingAlgorithm):
+class AttributesInconsistencyAlgorithm(BaseControlAlgorithm):
 
-    def name(self):
-        """Identifiant unique de l'algorithme"""
-        return 'C.00'
+    ALG_NAME = 'C.00'
+    ALG_DISPLAY_NAME = "Incohérences entre attributs"
+    ALG_GROUP = 'Controles génériques attributaires'
+    ALG_GROUP_ID = 'C'
+    ALG_HELP = (
+        "Le contrôle détecte les incohérences entre attributs pour une classe donnée d'après la règle suivante :\n"
+        "Cas1  : Si Champ1 <> Valeur1 alors Champ2 >= Champ1\n"
+        "Cas2  : Si Champ1 <> Valeur1 alors Champ2 <= Champ1\n"
+        "Cas3  : Si Champ1 <> Valeur1 alors Champ2 = Valeur2\n"
+        "Cas4  : Si Champ1 <> Valeur1 alors Champ2 <> Valeur2\n"
+        "Cas5  : Si Champ1 = Valeur1 alors Champ2 = Valeur2\n"
+        "Cas6  : Si Champ1 = Valeur1 alors Champ2 <> Valeur2\n"
+        "Cas7  : Si Champ1 <> Valeur1 et Champ2 <> Valeur2 alors Champ1 < Champ2\n"
+        "Cas8  : Si Champ1 = Valeur1 alors Champ2 <= DATE_DU_JOUR\n"
+        "Cas9  : Si Champ1 <> Valeur1 alors Champ2 <= Champ1 + Valeur2 (en mois)\n"
+        "Cas10 : Si Champ1 = Valeur1 alors Champ2 = Valeur2 ou Valeur2 ou Valeur2...\n"
+        "Cas13 : Si Champ1 = Valeur1 et Champ2 <> Valeur2 alors Champ3 = Valeur3\n"
+        "Cas14 : Si Champ1 = Valeur1 alors Champ2 ne contient pas Valeur2"
+    )
 
-    def displayName(self):
-        """Nom affiché de l'algorithme"""
-        return "Incohérences entre attributs"
-
-    def group(self):
-        """Nom du groupe"""
-        return 'Controles génériques attributaires'
-
-    def groupId(self):
-        """Identifiant du groupe"""
-        return 'C'
-
-    def shortHelpString(self):
-        """Description de l'algorithme"""
-        return (
-            "Le contrôle détecte les incohérences entre attributs pour une classe donnée d'après la règle suivante :\n"
-            "Cas1  : Si Champ1 <> Valeur1 alors Champ2 >= Champ1\n"
-            "Cas2  : Si Champ1 <> Valeur1 alors Champ2 <= Champ1\n"
-            "Cas3  : Si Champ1 <> Valeur1 alors Champ2 = Valeur2\n"
-            "Cas4  : Si Champ1 <> Valeur1 alors Champ2 <> Valeur2\n"
-            "Cas5  : Si Champ1 = Valeur1 alors Champ2 = Valeur2\n"
-            "Cas6  : Si Champ1 = Valeur1 alors Champ2 <> Valeur2\n"
-            "Cas7  : Si Champ1 <> Valeur1 et Champ2 <> Valeur2 alors Champ1 < Champ2\n"
-            "Cas8  : Si Champ1 = Valeur1 alors Champ2 <= DATE_DU_JOUR\n"
-            "Cas9  : Si Champ1 <> Valeur1 alors Champ2 <= Champ1 + Valeur2 (en mois)\n"
-            "Cas10 : Si Champ1 = Valeur1 alors Champ2 = Valeur2 ou Valeur2 ou Valeur2...\n"
-            "Cas13 : Si Champ1 = Valeur1 et Champ2 <> Valeur2 alors Champ3 = Valeur3\n"
-            "Cas14 : Si Champ1 = Valeur1 alors Champ2 ne contient pas Valeur2"
-        )
-
-    def createInstance(self):
-        """Crée une nouvelle instance de l'algorithme"""
-        return AttributesInconsistencyAlgorithm()
+    INPUT_LAYER = 'INPUT_LAYER'
 
     def initAlgorithm(self, config=None):
         self.addParameter(
             QgsProcessingParameterVectorLayer(
-                'INPUT_LAYER',
-                "Couche en entrée",
+                self.INPUT_LAYER,
+                self.tr("Couche en entrée"),
                 types=[QgsProcessing.TypeVectorAnyGeometry]
             )
         )
         self.addParameter(
             QgsProcessingParameterFile(
-                'PARAM_JSON',
-                'Paramètres JSON',
+                self.PARAM_JSON,
+                self.tr('Paramètres JSON'),
                 extension='json'
             )
         )
-        self.addParameter(
-            QgsProcessingParameterFeatureSink(
-                'OUTPUT',
-                'Sortie'
-            )
-        )
+        super().initAlgorithm(config)
 
     def processAlgorithm(self, parameters, context, feedback):
-        layer = self.parameterAsVectorLayer(parameters, 'INPUT_LAYER', context)
-        json_path = self.parameterAsFile(parameters, 'PARAM_JSON', context)
+        layer = self.parameterAsVectorLayer(parameters, self.INPUT_LAYER, context)
+        json_path = self.parameterAsFile(parameters, self.PARAM_JSON, context)
 
-        #param_json : {'couche': {condition: consequence}, ...}
-        with open(json_path, "r", encoding="utf-8") as f:
-            param_json = json.load(f)
+        # param_json : {'couche': {condition: consequence}, ...}
+        param_json = self.load_json_parameters(json_path)
 
         incoherence_attributes_feature = []
-        if layer.name() not in param_json.keys():
-            feedback.reportError("{} n'est pas présent dans le fichier json de paramétrage".format(layer.name()))
-            return {'OUTPUT': 'Traitement terminé'}
+        layer_params = self.get_layer_json_parameters(param_json, layer, feedback)
+        if layer_params is None:
+            return self.processing_done_result()
 
-        for condition, consequence in param_json[layer.name()]:
+        for condition, consequence in layer_params:
             request = QgsFeatureRequest()
             request.setFilterExpression(condition)
             for feature in layer.getFeatures(request):
@@ -98,9 +74,6 @@ class AttributesInconsistencyAlgorithm(QgsProcessingAlgorithm):
                         'Les champs {} et {} ne sont pas cohérents'.format(condition[0], consequence[0]),
                         feature.geometry().pointOnSurface()])
 
-        if incoherence_attributes_feature != []:
-            controlpoint_layer = ControlPointLayer('Incohérence entre attributs')
-            controlpoint_layer.add_features(incoherence_attributes_feature)
-            controlpoint_layer.save_as_temp_layer()
+        self.report_issues(incoherence_attributes_feature, 'Incohérence entre attributs')
 
-        return {'OUTPUT': 'Traitement terminé'}
+        return self.processing_done_result()

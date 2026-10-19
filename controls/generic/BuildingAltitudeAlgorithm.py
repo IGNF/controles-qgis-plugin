@@ -1,85 +1,92 @@
 from qgis.core import (
-    QgsProcessingAlgorithm,
     QgsProcessingParameterVectorLayer,
     QgsProcessingParameterField,
     QgsProcessingParameterNumber,
     QgsProcessing,
-    QgsProcessingParameterFile,
-    QgsProcessingParameterFeatureSink,
-    QgsFeatureRequest,
     NULL
 )
-from ControlPointLayer import ControlPointLayer
 from FieldValuesParameter import QgsProcessingParameterFieldValues, field_values_as_string_list
 
+from BaseControlAlgorithm import BaseControlAlgorithm
 
-class BuildingAltitudeAlgorithm(QgsProcessingAlgorithm):
+
+class BuildingAltitudeAlgorithm(BaseControlAlgorithm):
+
+    ALG_NAME = 'B.05'
+    ALG_DISPLAY_NAME = "Bâti/bâtiment"
+    ALG_GROUP = 'Controles génériques Z'
+    ALG_GROUP_ID = 'B'
+    ALG_HELP = (
+        "Ce contrôle détecte les bâtiments dont la Méthode d’acquisition altimétrique est différente de « Pas de Z » "
+        "et dont le champ ‘Altitude minimale sol’ est à  -100  ou à vide."
+    )
+
+    INPUT_LAYER = 'INPUT_LAYER'
+    ATTRIBUTE_FIELD = 'ATTRIBUTE_FIELD'
+    ATTRIBUTE_VALUES = 'ATTRIBUTE_VALUES'
+    ALTITUDE_FIELD = 'ALTITUDE_FIELD'
+    ALTITUDE_VALUE = 'ALTITUDE_VALUE'
 
     def initAlgorithm(self, config=None):
         self.addParameter(
             QgsProcessingParameterVectorLayer(
-                'INPUT_LAYER',
-                "Couche en entrée",
+                self.INPUT_LAYER,
+                self.tr("Couche en entrée"),
                 types=[QgsProcessing.TypeVector]
             )
         )
         self.addParameter(
             QgsProcessingParameterField(
-                'ATTRIBUTE_FIELD',
-                'Attribut à vérifier',
-                parentLayerParameterName='INPUT_LAYER',
+                self.ATTRIBUTE_FIELD,
+                self.tr('Attribut à vérifier'),
+                parentLayerParameterName=self.INPUT_LAYER,
                 type=QgsProcessingParameterField.Any
             )
         )
         self.addParameter(
             QgsProcessingParameterFieldValues(
-                'ATTRIBUTE_VALUES',
-                'Valeurs à contrôler',
-                parentLayerParameterName='INPUT_LAYER',
-                parentFieldParameterName='ATTRIBUTE_FIELD',
+                self.ATTRIBUTE_VALUES,
+                self.tr('Valeurs à contrôler'),
+                parentLayerParameterName=self.INPUT_LAYER,
+                parentFieldParameterName=self.ATTRIBUTE_FIELD,
                 allowMultiple=True,
                 optional=False
             )
         )
         self.addParameter(
             QgsProcessingParameterField(
-                'ALTITUDE_FIELD',
-                'Altitude à vérifier',
-                parentLayerParameterName='INPUT_LAYER',
+                self.ALTITUDE_FIELD,
+                self.tr('Altitude à vérifier'),
+                parentLayerParameterName=self.INPUT_LAYER,
                 type=QgsProcessingParameterField.Any
             )
         )
         self.addParameter(
             QgsProcessingParameterNumber(
-                'ALTITUDE_VALUE',
-                'Valeur d\'altitude invalide',
+                self.ALTITUDE_VALUE,
+                self.tr("Valeur d'altitude invalide"),
                 type=QgsProcessingParameterNumber.Double,
                 defaultValue=-100
             )
         )
-        self.addParameter(
-            QgsProcessingParameterFeatureSink(
-                'OUTPUT',
-                'Sortie'
-            )
-        )
+        super().initAlgorithm(config)
 
     def processAlgorithm(self, parameters, context, feedback):
-        layer = self.parameterAsVectorLayer(parameters, 'INPUT_LAYER', context)
-        attribute_field = self.parameterAsString(parameters, 'ATTRIBUTE_FIELD', context)
-        altitude_field = self.parameterAsString(parameters, 'ALTITUDE_FIELD', context)
-        altitude_value = self.parameterAsDouble(parameters, 'ALTITUDE_VALUE', context)
+        layer = self.parameterAsVectorLayer(parameters, self.INPUT_LAYER, context)
+        attribute_field = self.parameterAsString(parameters, self.ATTRIBUTE_FIELD, context)
+        altitude_field = self.parameterAsString(parameters, self.ALTITUDE_FIELD, context)
+        altitude_value = self.parameterAsDouble(parameters, self.ALTITUDE_VALUE, context)
 
         # Valeurs sélectionnées dynamiquement via le widget (stockées en chaîne séparée par des virgules)
-        raw_attribute_values = self.parameterAsString(parameters, 'ATTRIBUTE_VALUES', context)
+        raw_attribute_values = self.parameterAsString(parameters, self.ATTRIBUTE_VALUES, context)
         selected_values = field_values_as_string_list(raw_attribute_values)
 
         if attribute_field not in layer.fields().names():
-            feedback.reportError(f"L'attribut '{attribute_field}' n'existe pas dans la couche")
+            feedback.reportError(self.tr("L'attribut '{}' n'existe pas dans la couche").format(attribute_field))
             return {'OUTPUT': 'Erreur'}
 
         if altitude_field not in layer.fields().names():
-            feedback.reportError(f"Le champ altitude '{altitude_field}' n'existe pas dans la couche")
+            feedback.reportError(self.tr("Le champ altitude '{}' n'existe pas dans la couche").format(altitude_field))
             return {'OUTPUT': 'Erreur'}
 
         invalid_buildings = []
@@ -103,35 +110,6 @@ class BuildingAltitudeAlgorithm(QgsProcessingAlgorithm):
                     feature.geometry().pointOnSurface()
                 ])
 
-        if invalid_buildings:
-            controlpoint_layer = ControlPointLayer('Bâti/bâtiment')
-            controlpoint_layer.add_features(invalid_buildings)
-            controlpoint_layer.save_as_temp_layer()
+        self.report_issues(invalid_buildings, 'Bâti/bâtiment')
 
-        return {'OUTPUT': 'Traitement terminé'}
-
-    def name(self):
-        """Identifiant unique de l'algorithme"""
-        return 'B.05'
-
-    def displayName(self):
-        """Nom affiché de l'algorithme"""
-        return "Bâti/bâtiment"
-
-    def group(self):
-        """Nom du groupe"""
-        return 'Controles génériques Z'
-
-    def groupId(self):
-        """Identifiant du groupe"""
-        return 'B'
-
-    def shortHelpString(self):
-        """Description de l'algorithme"""
-        return \
-            "Ce contrôle détecte les bâtiments dont la Méthode d’acquisition altimétrique est différente de « Pas de Z » "\
-            "et dont le champ ‘Altitude minimale sol’ est à  -100  ou à vide."
-
-    def createInstance(self):
-        """Crée une nouvelle instance de l'algorithme"""
-        return BuildingAltitudeAlgorithm()
+        return self.processing_done_result()

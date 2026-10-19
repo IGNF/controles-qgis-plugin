@@ -1,70 +1,48 @@
 from qgis.core import (
-    QgsProcessingAlgorithm,
     QgsProcessingParameterVectorLayer,
-    QgsProcessingParameterMultipleLayers,
     QgsProcessing,
-    QgsProcessingParameterFeatureSink,
     QgsSpatialIndex,
     QgsFeature
 )
-from ControlPointLayer import ControlPointLayer
+
+from BaseControlAlgorithm import BaseControlAlgorithm
 
 
-class BuildingZAIIntersectionAlgorithm(QgsProcessingAlgorithm):
+class BuildingZAIIntersectionAlgorithm(BaseControlAlgorithm):
 
+    ALG_NAME = 'F.06'
+    ALG_DISPLAY_NAME = "Intersection Bâti / ZAI"
+    ALG_GROUP = 'Controles du thème Bati'
+    ALG_GROUP_ID = 'F'
+    ALG_HELP = (
+        "Ce contrôle détecte des objets ‘Zone d’activité ou d’intérêt’ et ‘Equipement de transport’ "
+        "qui n’intersectent pas un Bâtiment BDUni."
+    )
 
-    def name(self):
-        """Identifiant unique de l'algorithme"""
-        return 'F.06'
-
-    def displayName(self):
-        """Nom affiché de l'algorithme"""
-        return "Intersection Bâti / ZAI"
-
-    def group(self):
-        """Nom du groupe"""
-        return 'Controles du thème Bati'
-
-    def groupId(self):
-        """Identifiant du groupe"""
-        return 'F'
-
-    def shortHelpString(self):
-        """Description de l'algorithme"""
-        return (
-            "Ce contrôle détecte des objets ‘Zone d’activité ou d’intérêt’ et ‘Equipement de transport’ "\
-            "qui n’intersectent pas un Bâtiment BDUni.")
-
-    def createInstance(self):
-        """Crée une nouvelle instance de l'algorithme"""
-        return BuildingZAIIntersectionAlgorithm()
+    ZAI_LAYER = 'ZAI_LAYER'
+    BUILDING_LAYERS = 'BUILDING_LAYERS'
 
     def initAlgorithm(self, config=None):
         self.addParameter(
             QgsProcessingParameterVectorLayer(
-                'ZAI_LAYER',
-                "Couche Zone d'activité ou d'intérêt ou Equipement de transport",
+                self.ZAI_LAYER,
+                self.tr("Couche Zone d'activité ou d'intérêt ou Equipement de transport"),
                 types=[QgsProcessing.TypeVectorAnyGeometry]
             )
         )
 
         self.addParameter(
             QgsProcessingParameterVectorLayer(
-                'BUILDING_LAYERS',
-                "Couches Bâtiment BDUni",
+                self.BUILDING_LAYERS,
+                self.tr("Couches Bâtiment BDUni"),
                 types=[QgsProcessing.TypeVectorAnyGeometry]
             )
         )
-        self.addParameter(
-            QgsProcessingParameterFeatureSink(
-                'OUTPUT',
-                'Sortie'
-            )
-        )
+        super().initAlgorithm(config)
 
     def processAlgorithm(self, parameters, context, feedback):
-        zai_layer = self.parameterAsVectorLayer(parameters, 'ZAI_LAYER', context)
-        building_layers = self.parameterAsVectorLayer(parameters, 'BUILDING_LAYERS', context)
+        zai_layer = self.parameterAsVectorLayer(parameters, self.ZAI_LAYER, context)
+        building_layers = self.parameterAsVectorLayer(parameters, self.BUILDING_LAYERS, context)
 
         building_index, building_features = self._build_index([building_layers])
 
@@ -75,12 +53,9 @@ class BuildingZAIIntersectionAlgorithm(QgsProcessingAlgorithm):
                 zai_layer, "Zone d'activité ou d'intérêt", building_index, building_features
             ))
 
-        if issues:
-            controlpoint_layer = ControlPointLayer("Intersection Bâti / ZAI")
-            controlpoint_layer.add_features(issues)
-            controlpoint_layer.save_as_temp_layer()
+        self.report_issues(issues, "Intersection Bâti / ZAI")
 
-        return {'OUTPUT': 'Traitement terminé'}
+        return self.processing_done_result()
 
     def _find_non_intersecting_features(self, layer, label, building_index, building_features):
         """Retourne la liste des lignes de contrôle pour les objets de `layer` qui

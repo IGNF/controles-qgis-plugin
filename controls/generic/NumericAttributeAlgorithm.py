@@ -1,42 +1,45 @@
 from qgis.core import (
-QgsProcessingAlgorithm,
-QgsProcessingParameterVectorLayer,
-QgsProcessing,
-QgsProcessingParameterField,
-QgsProcessingParameterFeatureSink,
-NULL
+    QgsProcessingParameterVectorLayer,
+    QgsProcessing,
+    QgsProcessingParameterField,
+    NULL
 )
-from ControlPointLayer import ControlPointLayer
+
+from BaseControlAlgorithm import BaseControlAlgorithm
 
 
-class NumericAttributeAlgorithm(QgsProcessingAlgorithm):
+class NumericAttributeAlgorithm(BaseControlAlgorithm):
+
+    ALG_NAME = 'C.08'
+    ALG_DISPLAY_NAME = "Attributs numériques"
+    ALG_GROUP = 'Controles génériques attributaires'
+    ALG_GROUP_ID = 'C'
+    ALG_HELP = "contrôle si l'attribut est entièrement composé de chiffres."
+
+    INPUT_LAYER = 'INPUT_LAYER'
+    FIELDS = 'FIELDS'
 
     def initAlgorithm(self, config=None):
         self.addParameter(
             QgsProcessingParameterVectorLayer(
-                'INPUT_LAYER',
-                "Couche en entrée",
+                self.INPUT_LAYER,
+                self.tr("Couche en entrée"),
                 types=[QgsProcessing.TypeVectorAnyGeometry]
             )
         )
         self.addParameter(
             QgsProcessingParameterField(
-                'FIELDS',
-                'Champs à vérifier',
-                parentLayerParameterName='INPUT_LAYER',
+                self.FIELDS,
+                self.tr('Champs à vérifier'),
+                parentLayerParameterName=self.INPUT_LAYER,
                 allowMultiple=True
             )
         )
-        self.addParameter(
-            QgsProcessingParameterFeatureSink(
-                'OUTPUT',
-                'Sortie'
-            )
-        )
+        super().initAlgorithm(config)
 
     def processAlgorithm(self, parameters, context, feedback):
-        layer = self.parameterAsVectorLayer(parameters, 'INPUT_LAYER', context)
-        fields = self.parameterAsFields(parameters, 'FIELDS', context)
+        layer = self.parameterAsVectorLayer(parameters, self.INPUT_LAYER, context)
+        fields = self.parameterAsFields(parameters, self.FIELDS, context)
 
         numeric_attributes_feature = []
 
@@ -56,33 +59,6 @@ class NumericAttributeAlgorithm(QgsProcessingAlgorithm):
                             '',
                             feature.geometry().pointOnSurface()])
 
-        if numeric_attributes_feature != []:
-            controlpoint_layer = ControlPointLayer('Attributs numériques')
-            controlpoint_layer.add_features(numeric_attributes_feature)
-            controlpoint_layer.save_as_temp_layer()
+        self.report_issues(numeric_attributes_feature, 'Attributs numériques')
 
-        return {'OUTPUT': 'Traitement terminé'}
-
-    def name(self):
-        """Identifiant unique de l'algorithme"""
-        return 'C.08'
-
-    def displayName(self):
-        """Nom affiché de l'algorithme"""
-        return "Attributs numériques"
-
-    def group(self):
-        """Nom du groupe"""
-        return 'Controles génériques attributaires'
-
-    def groupId(self):
-        """Identifiant du groupe"""
-        return 'C'
-
-    def shortHelpString(self):
-        """Description de l'algorithme"""
-        return "contrôle si l'attribut est entièrement composé de chiffres."
-
-    def createInstance(self):
-        """Crée une nouvelle instance de l'algorithme"""
-        return NumericAttributeAlgorithm()
+        return self.processing_done_result()

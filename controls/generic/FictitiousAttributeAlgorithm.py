@@ -1,64 +1,71 @@
 from qgis.core import (
-QgsProcessingAlgorithm,
-QgsProcessingParameterVectorLayer,
-QgsProcessing,
-QgsProcessingParameterFeatureSink,
-QgsProcessingParameterField,
-QgsProcessingParameterNumber,
-QgsWkbTypes
+    QgsProcessingParameterVectorLayer,
+    QgsProcessing,
+    QgsProcessingParameterField,
+    QgsProcessingParameterNumber,
+    QgsWkbTypes
 )
 from qgis.PyQt.QtCore import QVariant
-from ControlPointLayer import ControlPointLayer
+
+from BaseControlAlgorithm import BaseControlAlgorithm
 
 
-class FictitiousAttributeAlgorithm(QgsProcessingAlgorithm):
+class FictitiousAttributeAlgorithm(BaseControlAlgorithm):
+
+    ALG_NAME = 'C.11'
+    ALG_DISPLAY_NAME = "Enceinte / Fictif"
+    ALG_GROUP = 'controles génériques attributaires'
+    ALG_GROUP_ID = 'C'
+    ALG_HELP = (
+        "Le but de ce contrôle est de s’assurer que l’attribut Fictif des classes d’objets surfaciques modélisant"
+        "des enceintes est correctement codé."
+    )
+
+    INPUT_LAYER = 'INPUT_LAYER'
+    FICTIF_FIELD = 'FICTIF_FIELD'
+    AREA_THRESHOLD = 'AREA_THRESHOLD'
 
     def initAlgorithm(self, config=None):
         self.addParameter(
             QgsProcessingParameterVectorLayer(
-                'INPUT_LAYER',
-                "Couche en entrée",
+                self.INPUT_LAYER,
+                self.tr("Couche en entrée"),
                 types=[QgsProcessing.TypeVectorPolygon]
             )
         )
         self.addParameter(
             QgsProcessingParameterField(
-                'FICTIF_FIELD',
-                "Attribut fictif",
-                parentLayerParameterName='INPUT_LAYER'
+                self.FICTIF_FIELD,
+                self.tr("Attribut fictif"),
+                parentLayerParameterName=self.INPUT_LAYER
             )
         )
         self.addParameter(
             QgsProcessingParameterNumber(
-                'AREA_THRESHOLD',
-                "Seuil de surface",
+                self.AREA_THRESHOLD,
+                self.tr("Seuil de surface"),
                 type=QgsProcessingParameterNumber.Double,
                 defaultValue=25.0
             )
         )
-        self.addParameter(
-            QgsProcessingParameterFeatureSink(
-                'OUTPUT',
-                'Sortie'
-            )
-        )
+        super().initAlgorithm(config)
 
     def processAlgorithm(self, parameters, context, feedback):
-        layer = self.parameterAsVectorLayer(parameters, 'INPUT_LAYER', context)
-        fictif_field = self.parameterAsString(parameters, 'FICTIF_FIELD', context)
-        area_threshold = self.parameterAsDouble(parameters, 'AREA_THRESHOLD', context)
+        layer = self.parameterAsVectorLayer(parameters, self.INPUT_LAYER, context)
+        fictif_field = self.parameterAsString(parameters, self.FICTIF_FIELD, context)
+        area_threshold = self.parameterAsDouble(parameters, self.AREA_THRESHOLD, context)
 
         fictif_attribute_feature = []
         if layer.geometryType() != QgsWkbTypes.PolygonGeometry:
-            feedback.reportError(f"La couche {layer.name()} n'est pas surfacique")
-            return {'OUTPUT': 'Traitement terminé'}
+            feedback.reportError(self.tr("La couche {} n'est pas surfacique").format(layer.name()))
+            return self.processing_done_result()
 
         field = layer.fields().field(fictif_field)
         if field.type() != QVariant.Bool:
             feedback.reportError(
-                f"Le champ '{fictif_field}' n'est pas de type booléen (type détecté : {field.typeName()})"
+                self.tr("Le champ '{}' n'est pas de type booléen (type détecté : {})").format(fictif_field, field.typeName())
             )
-            return {'OUTPUT': 'Traitement terminé'}
+            return self.processing_done_result()
 
         for feature in layer.getFeatures():
             if feature.geometry().isEmpty() or feature.geometry().isGeosValid() is False:
@@ -74,35 +81,6 @@ class FictitiousAttributeAlgorithm(QgsProcessingAlgorithm):
                             fictif_field, layer.name()),
                         feature.geometry().pointOnSurface()])
 
-        if fictif_attribute_feature:
-            controlpoint_layer = ControlPointLayer('Enceinte/Fictif')
-            controlpoint_layer.add_features(fictif_attribute_feature)
-            controlpoint_layer.save_as_temp_layer()
+        self.report_issues(fictif_attribute_feature, 'Enceinte/Fictif')
 
-        return {'OUTPUT': 'Traitement terminé'}
-
-    def name(self):
-        """Identifiant unique de l'algorithme"""
-        return 'C.11'
-
-    def displayName(self):
-        """Nom affiché de l'algorithme"""
-        return "Enceinte / Fictif"
-
-    def group(self):
-        """Nom du groupe"""
-        return 'controles génériques attributaires'
-
-    def groupId(self):
-        """Identifiant du groupe"""
-        return 'C'
-
-    def shortHelpString(self):
-        """Description de l'algorithme"""
-        return \
-            "Le but de ce contrôle est de s’assurer que l’attribut Fictif des classes d’objets surfaciques modélisant"\
-            "des enceintes est correctement codé."
-
-    def createInstance(self):
-        """Crée une nouvelle instance de l'algorithme"""
-        return FictitiousAttributeAlgorithm()
+        return self.processing_done_result()

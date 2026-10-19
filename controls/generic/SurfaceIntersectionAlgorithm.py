@@ -1,37 +1,42 @@
 from qgis.core import (
-QgsProcessingAlgorithm,
- QgsProcessingParameterVectorLayer,
-QgsProcessing,
-QgsProcessingParameterFeatureSink,
-QgsWkbTypes
+    QgsProcessingParameterVectorLayer,
+    QgsProcessing,
+    QgsWkbTypes
 )
-from ControlPointLayer import ControlPointLayer
+
+from BaseControlAlgorithm import BaseControlAlgorithm
 
 
-class SurfaceIntersectionAlgorithm(QgsProcessingAlgorithm):
+class SurfaceIntersectionAlgorithm(BaseControlAlgorithm):
+
+    ALG_NAME = 'A.12'
+    ALG_DISPLAY_NAME = "Intersections de surfaciques"
+    ALG_GROUP = 'Controles génériques géométrique'
+    ALG_GROUP_ID = 'A'
+    ALG_HELP = (
+        "Ce contrôle détecte les intersections entre les objets d’une même classe."
+        "Le contrôle est positionné sur la ou les intersections entre les objets."
+    )
+
+    INPUT_LAYER = 'INPUT_LAYER'
 
     def initAlgorithm(self, config=None):
         self.addParameter(
             QgsProcessingParameterVectorLayer(
-                'INPUT_LAYER',
-                "Couche en entrée",
+                self.INPUT_LAYER,
+                self.tr("Couche en entrée"),
                 types=[QgsProcessing.TypeVectorPolygon]
             )
         )
-        self.addParameter(
-            QgsProcessingParameterFeatureSink(
-                'OUTPUT',
-                'Sortie'
-            )
-        )
+        super().initAlgorithm(config)
 
     def processAlgorithm(self, parameters, context, feedback):
-        layer = self.parameterAsVectorLayer(parameters, 'INPUT_LAYER', context)
+        layer = self.parameterAsVectorLayer(parameters, self.INPUT_LAYER, context)
 
         intersection_features = []
         if layer.geometryType() != QgsWkbTypes.PolygonGeometry:
-            feedback.reportError("{} n'est pas une couche surfacique".format(layer.name()))
-            return {'OUTPUT': 'Traitement terminé'}
+            feedback.reportError(self.tr("{} n'est pas une couche surfacique").format(layer.name()))
+            return self.processing_done_result()
 
         features = list(layer.getFeatures())
         for i, feature1 in enumerate(features):
@@ -55,34 +60,6 @@ class SurfaceIntersectionAlgorithm(QgsProcessingAlgorithm):
                             intersection.centroid()
                         ])
 
-        if intersection_features != []:
-            controlpoint_layer = ControlPointLayer('Intersection de surfaciques')
-            controlpoint_layer.add_features(intersection_features)
-            controlpoint_layer.save_as_temp_layer()
+        self.report_issues(intersection_features, 'Intersection de surfaciques')
 
-        return {'OUTPUT': 'Traitement terminé'}
-
-    def name(self):
-        """Identifiant unique de l'algorithme"""
-        return 'A.12'
-
-    def displayName(self):
-        """Nom affiché de l'algorithme"""
-        return "Intersections de surfaciques"
-
-    def group(self):
-        """Nom du groupe"""
-        return 'Controles génériques géométrique'
-
-    def groupId(self):
-        """Identifiant du groupe"""
-        return 'A'
-
-    def shortHelpString(self):
-        """Description de l'algorithme"""
-        return "Ce contrôle détecte les intersections entre les objets d’une même classe."\
-               "Le contrôle est positionné sur la ou les intersections entre les objets."
-
-    def createInstance(self):
-        """Crée une nouvelle instance de l'algorithme"""
-        return SurfaceIntersectionAlgorithm()
+        return self.processing_done_result()

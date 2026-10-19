@@ -11,12 +11,14 @@
  ***************************************************************************/
 """
 
-from qgis.core import QgsProcessingProvider
+from qgis.core import QgsProcessingProvider, QgsMessageLog, Qgis
 from qgis.PyQt.QtGui import QIcon
 import os
 import importlib
 import inspect
 from qgis.core import QgsProcessingAlgorithm
+
+LOG_TAG = 'Contrôles BDUni'
 
 
 class ControlesBDUniProvider(QgsProcessingProvider):
@@ -104,12 +106,16 @@ class ControlesBDUniProvider(QgsProcessingProvider):
                                 # Ajouter au provider
                                 self.addAlgorithm(algo)
                             except Exception as e:
-                                # Ignorer les erreurs d'instanciation
-                                pass
+                                QgsMessageLog.logMessage(
+                                    f"Impossible d'instancier l'algorithme '{name}' ({module_path}) : {e}",
+                                    LOG_TAG, Qgis.Warning
+                                )
 
                 except Exception as e:
-                    # Ignorer les erreurs d'import
-                    pass
+                    QgsMessageLog.logMessage(
+                        f"Impossible d'importer le module '{module_path}' : {e}",
+                        LOG_TAG, Qgis.Warning
+                    )
 
     def longName(self):
         """Nom long du provider"""

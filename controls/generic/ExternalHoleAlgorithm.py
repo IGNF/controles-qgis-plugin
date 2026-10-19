@@ -1,38 +1,41 @@
 from qgis.core import (
-QgsProcessingAlgorithm,
-QgsProcessingParameterVectorLayer,
-QgsProcessing,
-QgsProcessingParameterFeatureSink,
-QgsWkbTypes,
-QgsGeometry,
+    QgsProcessingParameterVectorLayer,
+    QgsProcessing,
+    QgsWkbTypes,
+    QgsGeometry,
 )
-from ControlPointLayer import ControlPointLayer
 
-class ExternalHoleAlgorithm(QgsProcessingAlgorithm):
+from BaseControlAlgorithm import BaseControlAlgorithm
+
+
+class ExternalHoleAlgorithm(BaseControlAlgorithm):
+
+    ALG_NAME = 'A.13'
+    ALG_DISPLAY_NAME = "Recherche des trous externes"
+    ALG_GROUP = 'Controles génériques géométriques'
+    ALG_GROUP_ID = 'A'
+    ALG_HELP = "Ce contrôle détecte toutes les surfaces trouées incohérentes ou suspectes"
+
+    INPUT_LAYER = 'INPUT_LAYER'
 
     def initAlgorithm(self, config=None):
         self.addParameter(
             QgsProcessingParameterVectorLayer(
-                'INPUT_LAYER',
-                "Couche en entrée",
+                self.INPUT_LAYER,
+                self.tr("Couche en entrée"),
                 types=[QgsProcessing.TypeVectorPolygon]
             )
         )
-        self.addParameter(
-            QgsProcessingParameterFeatureSink(
-                'OUTPUT',
-                'Sortie'
-            )
-        )
+        super().initAlgorithm(config)
 
     def processAlgorithm(self, parameters, context, feedback):
-        layer = self.parameterAsVectorLayer(parameters, 'INPUT_LAYER', context)
+        layer = self.parameterAsVectorLayer(parameters, self.INPUT_LAYER, context)
 
         issues = []
         geom_type = layer.geometryType()
         if geom_type != QgsWkbTypes.PolygonGeometry:
-            feedback.reportError(f"La couche {layer.name()} n'est pas surfacique")
-            return {'OUTPUT': 'Traitement terminé'}
+            feedback.reportError(self.tr("La couche {} n'est pas surfacique").format(layer.name()))
+            return self.processing_done_result()
 
         for feature in layer.getFeatures():
             geom = feature.geometry()
@@ -102,34 +105,6 @@ class ExternalHoleAlgorithm(QgsProcessingAlgorithm):
                             ring_centroid
                         ])
 
-        if issues:
-            controlpoint_layer = ControlPointLayer('Recherche des trous externes')
-            controlpoint_layer.add_features(issues)
-            controlpoint_layer.save_as_temp_layer()
+        self.report_issues(issues, 'Recherche des trous externes')
 
-        return {'OUTPUT': 'Traitement terminé'}
-
-    def name(self):
-        """Identifiant unique de l'algorithme"""
-        return 'A.13'
-
-    def displayName(self):
-        """Nom affiché de l'algorithme"""
-        return "Recherche des trous externes"
-
-    def group(self):
-        """Nom du groupe"""
-        return 'Controles génériques géométriques'
-
-    def groupId(self):
-        """Identifiant du groupe"""
-        return 'A'
-
-    def shortHelpString(self):
-        """Description de l'algorithme"""
-        return \
-            "Ce contrôle détecte toutes les surfaces trouées incohérentes ou suspectes"
-
-    def createInstance(self):
-        """Crée une nouvelle instance de l'algorithme"""
-        return ExternalHoleAlgorithm()
+        return self.processing_done_result()

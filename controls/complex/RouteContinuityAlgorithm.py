@@ -1,46 +1,45 @@
 from qgis.core import (
-    QgsProcessingAlgorithm,
     QgsProcessingParameterVectorLayer,
     QgsProcessing,
     QgsProcessingParameterField,
-    QgsProcessingParameterEnum,
-    QgsProcessingParameterFeatureSink,
-    QgsFeatureRequest,
-QgsPoint,
-QgsSpatialIndex,
-QgsGeometry
+    QgsGeometry
 )
-from ControlPointLayer import ControlPointLayer
+
+from BaseControlAlgorithm import BaseControlAlgorithm
 
 
-class RouteContinuityAlgorithm(QgsProcessingAlgorithm):
+class RouteContinuityAlgorithm(BaseControlAlgorithm):
+
+    ALG_NAME = 'L.01'
+    ALG_DISPLAY_NAME = "Continuité de l’Itinéraire FFR"
+    ALG_GROUP = 'Controles des complexes et des liens'
+    ALG_GROUP_ID = 'L'
+    ALG_HELP = "Ce contrôle détecte toutes les discontinuités du graphe formé par les tronçons de route liés à chaque objet Itinéraire FFR."
+
+    INPUT_LAYER = 'INPUT_LAYER'
+    ATTRIBUTE_FIELD = 'ATTRIBUTE_FIELD'
 
     def initAlgorithm(self, config=None):
         self.addParameter(
             QgsProcessingParameterVectorLayer(
-                'INPUT_LAYER',
-                "Couche en entrée",
+                self.INPUT_LAYER,
+                self.tr("Couche en entrée"),
                 types=[QgsProcessing.TypeVectorLine]
             )
         )
         self.addParameter(
             QgsProcessingParameterField(
-                'ATTRIBUTE_FIELD',
-                'Attribut à vérifier',
-                parentLayerParameterName='INPUT_LAYER',
+                self.ATTRIBUTE_FIELD,
+                self.tr('Attribut à vérifier'),
+                parentLayerParameterName=self.INPUT_LAYER,
                 type=QgsProcessingParameterField.Any
             )
         )
-        self.addParameter(
-            QgsProcessingParameterFeatureSink(
-                'OUTPUT',
-                'Sortie'
-            )
-        )
+        super().initAlgorithm(config)
 
     def processAlgorithm(self, parameters, context, feedback):
-        layer = self.parameterAsVectorLayer(parameters, 'INPUT_LAYER', context)
-        attribute_field = self.parameterAsString(parameters, 'ATTRIBUTE_FIELD', context)
+        layer = self.parameterAsVectorLayer(parameters, self.INPUT_LAYER, context)
+        attribute_field = self.parameterAsString(parameters, self.ATTRIBUTE_FIELD, context)
 
         invalid_objects = []
 
@@ -107,34 +106,6 @@ class RouteContinuityAlgorithm(QgsProcessingAlgorithm):
                         endpoint_geom
                     ])
 
-        if invalid_objects:
-            controlpoint_layer = ControlPointLayer("Continuité de l'Itinéraire FFR")
-            controlpoint_layer.add_features(invalid_objects)
-            controlpoint_layer.save_as_temp_layer()
+        self.report_issues(invalid_objects, "Continuité de l'Itinéraire FFR")
 
-        return {'OUTPUT': 'Traitement terminé'}
-
-    def name(self):
-        """Identifiant unique de l'algorithme"""
-        return 'L.01'
-
-    def displayName(self):
-        """Nom affiché de l'algorithme"""
-        return "Continuité de l’Itinéraire FFR"
-
-    def group(self):
-        """Nom du groupe"""
-        return 'Controles des complexes et des liens'
-
-    def groupId(self):
-        """Identifiant du groupe"""
-        return 'L'
-
-    def shortHelpString(self):
-        """Description de l'algorithme"""
-        return \
-            "Ce contrôle détecte toutes les discontinuités du graphe formé par les tronçons de route liés à chaque objet Itinéraire FFR."
-
-    def createInstance(self):
-        """Crée une nouvelle instance de l'algorithme"""
-        return RouteContinuityAlgorithm()
+        return self.processing_done_result()

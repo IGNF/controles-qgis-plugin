@@ -1,77 +1,88 @@
 from qgis.core import (
-    QgsProcessingAlgorithm,
     QgsProcessingParameterVectorLayer,
     QgsProcessing,
     QgsProcessingParameterField,
     QgsProcessingParameterNumber,
-    QgsProcessingParameterFeatureSink,
-    QgsFeatureRequest,
-QgsPointXY,
-QgsSpatialIndex,
-QgsGeometry
+    QgsPointXY,
+    QgsSpatialIndex,
+    QgsGeometry
 )
-from ControlPointLayer import ControlPointLayer
 from FieldValuesParameter import QgsProcessingParameterFieldValues, field_values_as_string_list
 
+from BaseControlAlgorithm import BaseControlAlgorithm
 
-class ZMaxAltitudeAlgorithm(QgsProcessingAlgorithm):
+
+class PylonElectricLineInconsistencyAlgorithm(BaseControlAlgorithm):
+
+    ALG_NAME = 'H.01'
+    ALG_DISPLAY_NAME = "Recherche d'incohérence géométrique entre pylône et point intermédiaire de la ligne éléctrique"
+    ALG_GROUP = 'Controles sur le réseau électrique'
+    ALG_GROUP_ID = 'H'
+    ALG_HELP = (
+        "Ce contrôle détecte :"
+        "parmi les pylônes dont le champ Méthode d’acquisition altimétrique est égal à ‘Photogrammétrie’ ou ‘Photogrammétrie longue focale’, ceux dont le Z est différent du Z du point intermédiaire de la ligne électrique"
+        "les pylônes non superposés à un point intermédiaire de la ligne électrique et situés à une distance inférieure à 10 m de celui-ci"
+        "les pylônes non superposés à un point intermédiaire de la ligne électrique et situés à une distance supérieure à 10 m de celui-ci"
+        "les points intermédiaires des lignes électriques n’ayant pas de pylône dans un rayon de 10 m"
+    )
+
+    PYLON_LAYER = 'PYLON_LAYER'
+    LINE_LAYER = 'LINE_LAYER'
+    ATTRIBUTE_FIELD = 'ATTRIBUTE_FIELD'
+    ATTRIBUTE_VALUES = 'ATTRIBUTE_VALUES'
+    DISTANCE_THRESHOLD = 'DISTANCE_THRESHOLD'
 
     def initAlgorithm(self, config=None):
         self.addParameter(
             QgsProcessingParameterVectorLayer(
-                'PYLON_LAYER',
-                "Couche de pylones",
+                self.PYLON_LAYER,
+                self.tr("Couche de pylones"),
                 types=[QgsProcessing.TypeVector]
             )
         )
         self.addParameter(
             QgsProcessingParameterVectorLayer(
-                'LINE_LAYER',
-                "Couche de lignes électriques",
+                self.LINE_LAYER,
+                self.tr("Couche de lignes électriques"),
                 types=[QgsProcessing.TypeVectorLine]
             )
         )
         self.addParameter(
             QgsProcessingParameterField(
-                'ATTRIBUTE_FIELD',
-                'Attribut à vérifier',
-                parentLayerParameterName='PYLON_LAYER',
+                self.ATTRIBUTE_FIELD,
+                self.tr('Attribut à vérifier'),
+                parentLayerParameterName=self.PYLON_LAYER,
                 type=QgsProcessingParameterField.Any
             )
         )
         self.addParameter(
             QgsProcessingParameterFieldValues(
-                'ATTRIBUTE_VALUES',
-                'Valeurs à contrôler',
-                parentLayerParameterName='PYLON_LAYER',
-                parentFieldParameterName='ATTRIBUTE_FIELD',
+                self.ATTRIBUTE_VALUES,
+                self.tr('Valeurs à contrôler'),
+                parentLayerParameterName=self.PYLON_LAYER,
+                parentFieldParameterName=self.ATTRIBUTE_FIELD,
                 allowMultiple=True,
                 optional=False
             )
         )
         self.addParameter(
             QgsProcessingParameterNumber(
-                'DISTANCE_THRESHOLD',
-                'Distance seuil (m)',
+                self.DISTANCE_THRESHOLD,
+                self.tr('Distance seuil (m)'),
                 type=QgsProcessingParameterNumber.Double,
                 defaultValue=10
             )
         )
-        self.addParameter(
-            QgsProcessingParameterFeatureSink(
-                'OUTPUT',
-                'Sortie'
-            )
-        )
+        super().initAlgorithm(config)
 
     def processAlgorithm(self, parameters, context, feedback):
-        pylon_layer = self.parameterAsVectorLayer(parameters, 'PYLON_LAYER', context)
-        line_layer = self.parameterAsVectorLayer(parameters, 'LINE_LAYER', context)
-        distance_threshold = self.parameterAsDouble(parameters, 'DISTANCE_THRESHOLD', context)
-        attribute_field = self.parameterAsString(parameters, 'ATTRIBUTE_FIELD', context)
+        pylon_layer = self.parameterAsVectorLayer(parameters, self.PYLON_LAYER, context)
+        line_layer = self.parameterAsVectorLayer(parameters, self.LINE_LAYER, context)
+        distance_threshold = self.parameterAsDouble(parameters, self.DISTANCE_THRESHOLD, context)
+        attribute_field = self.parameterAsString(parameters, self.ATTRIBUTE_FIELD, context)
 
         # Valeurs sélectionnées dynamiquement via le widget (stockées en chaîne séparée par des virgules)
-        raw_attribute_values = self.parameterAsString(parameters, 'ATTRIBUTE_VALUES', context)
+        raw_attribute_values = self.parameterAsString(parameters, self.ATTRIBUTE_VALUES, context)
         attribute_values = field_values_as_string_list(raw_attribute_values)
 
         invalid_objects = []
@@ -188,38 +199,6 @@ class ZMaxAltitudeAlgorithm(QgsProcessingAlgorithm):
                     QgsGeometry.fromPointXY(QgsPointXY(inter_point.x(), inter_point.y()))
                 ])
 
-        if invalid_objects:
-            controlpoint_layer = ControlPointLayer("Recherche d'incohérence géométrique entre pylône et point intermédiaire de la ligne éléctrique")
-            controlpoint_layer.add_features(invalid_objects)
-            controlpoint_layer.save_as_temp_layer()
+        self.report_issues(invalid_objects, "Recherche d'incohérence géométrique entre pylône et point intermédiaire de la ligne éléctrique")
 
-        return {'OUTPUT': 'Traitement terminé'}
-
-    def name(self):
-        """Identifiant unique de l'algorithme"""
-        return 'H.01'
-
-    def displayName(self):
-        """Nom affiché de l'algorithme"""
-        return "Recherche d'incohérence géométrique entre pylône et point intermédiaire de la ligne éléctrique"
-
-    def group(self):
-        """Nom du groupe"""
-        return 'Controles sur le réseau électrique'
-
-    def groupId(self):
-        """Identifiant du groupe"""
-        return 'H'
-
-    def shortHelpString(self):
-        """Description de l'algorithme"""
-        return \
-            "Ce contrôle détecte :"\
-"parmi les pylônes dont le champ Méthode d’acquisition altimétrique est égal à ‘Photogrammétrie’ ou ‘Photogrammétrie longue focale’, ceux dont le Z est différent du Z du point intermédiaire de la ligne électrique"\
-"les pylônes non superposés à un point intermédiaire de la ligne électrique et situés à une distance inférieure à 10 m de celui-ci"\
-"les pylônes non superposés à un point intermédiaire de la ligne électrique et situés à une distance supérieure à 10 m de celui-ci"\
-"les points intermédiaires des lignes électriques n’ayant pas de pylône dans un rayon de 10 m"
-
-    def createInstance(self):
-        """Crée une nouvelle instance de l'algorithme"""
-        return ZMaxAltitudeAlgorithm()
+        return self.processing_done_result()

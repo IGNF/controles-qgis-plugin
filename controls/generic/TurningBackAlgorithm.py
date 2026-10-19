@@ -1,39 +1,42 @@
 from qgis.core import (
-QgsProcessingAlgorithm,
-QgsProcessingParameterVectorLayer,
-QgsProcessing,
-QgsProcessingParameterFeatureSink,
-QgsWkbTypes,
-QgsPoint
+    QgsProcessingParameterVectorLayer,
+    QgsProcessing,
+    QgsWkbTypes,
+    QgsPoint
 )
-from ControlPointLayer import ControlPointLayer
 import math
 
-class TurningBackAlgorithm(QgsProcessingAlgorithm):
+from BaseControlAlgorithm import BaseControlAlgorithm
+
+
+class TurningBackAlgorithm(BaseControlAlgorithm):
+
+    ALG_NAME = 'A.20'
+    ALG_DISPLAY_NAME = "Rebroussement"
+    ALG_GROUP = 'Controles génériques géométriques'
+    ALG_GROUP_ID = 'A'
+    ALG_HELP = "Le contrôle détecte les rebroussements définissant un angle < 10° sur les réseaux linéaires concernés"
+
+    INPUT_LAYER = 'INPUT_LAYER'
 
     def initAlgorithm(self, config=None):
         self.addParameter(
             QgsProcessingParameterVectorLayer(
-                'INPUT_LAYER',
-                "Couche en entrée",
+                self.INPUT_LAYER,
+                self.tr("Couche en entrée"),
                 types=[QgsProcessing.TypeVectorLine]
             )
         )
-        self.addParameter(
-            QgsProcessingParameterFeatureSink(
-                'OUTPUT',
-                'Sortie'
-            )
-        )
+        super().initAlgorithm(config)
 
     def processAlgorithm(self, parameters, context, feedback):
-        layer = self.parameterAsVectorLayer(parameters, 'INPUT_LAYER', context)
+        layer = self.parameterAsVectorLayer(parameters, self.INPUT_LAYER, context)
         angle_threshold = 10.0
 
         turning_backs = []
         if layer.geometryType() != QgsWkbTypes.LineGeometry:
-            feedback.pushWarning(f"La couche {layer.name()} n'est pas linéaire")
-            return {'OUTPUT': 'Traitement terminé'}
+            feedback.pushWarning(self.tr("La couche {} n'est pas linéaire").format(layer.name()))
+            return self.processing_done_result()
 
         for feature in layer.getFeatures():
             geom = feature.geometry()
@@ -68,34 +71,6 @@ class TurningBackAlgorithm(QgsProcessingAlgorithm):
                         QgsPoint(p2.x(), p2.y())
                     ])
 
-        if turning_backs:
-            controlpoint_layer = ControlPointLayer('Rebroussement')
-            controlpoint_layer.add_features(turning_backs)
-            controlpoint_layer.save_as_temp_layer()
+        self.report_issues(turning_backs, 'Rebroussement')
 
-        return {'OUTPUT': 'Traitement terminé'}
-
-    def name(self):
-        """Identifiant unique de l'algorithme"""
-        return 'A.20'
-
-    def displayName(self):
-        """Nom affiché de l'algorithme"""
-        return "Rebroussement"
-
-    def group(self):
-        """Nom du groupe"""
-        return 'Controles génériques géométriques'
-
-    def groupId(self):
-        """Identifiant du groupe"""
-        return 'A'
-
-    def shortHelpString(self):
-        """Description de l'algorithme"""
-        return \
-            "Le contrôle détecte les rebroussements définissant un angle < 10° sur les réseaux linéaires concernés"
-
-    def createInstance(self):
-        """Crée une nouvelle instance de l'algorithme"""
-        return TurningBackAlgorithm()
+        return self.processing_done_result()

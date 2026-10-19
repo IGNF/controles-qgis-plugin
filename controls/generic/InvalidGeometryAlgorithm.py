@@ -1,28 +1,31 @@
 from qgis.core import (
-QgsProcessingAlgorithm,
-QgsProcessingParameterVectorLayer,
-QgsProcessing,
-QgsProcessingParameterFeatureSink,
-QgsGeometry
+    QgsProcessingParameterVectorLayer,
+    QgsProcessing,
+    QgsGeometry
 )
-from ControlPointLayer import ControlPointLayer
 
-class InvalidGeometryAlgorithm(QgsProcessingAlgorithm):
+from BaseControlAlgorithm import BaseControlAlgorithm
+
+
+class InvalidGeometryAlgorithm(BaseControlAlgorithm):
+
+    ALG_NAME = 'A.16'
+    ALG_DISPLAY_NAME = "Géométrie invalide"
+    ALG_GROUP = 'Controles génériques géométriques'
+    ALG_GROUP_ID = 'A'
+    ALG_HELP = "Vérifie que la géométrie est valide"
+
+    INPUT_LAYER = 'INPUT_LAYER'
 
     def initAlgorithm(self, config=None):
         self.addParameter(
             QgsProcessingParameterVectorLayer(
-                'INPUT_LAYER',
-                "Couche en entrée",
+                self.INPUT_LAYER,
+                self.tr("Couche en entrée"),
                 types=[QgsProcessing.TypeVector]
             )
         )
-        self.addParameter(
-            QgsProcessingParameterFeatureSink(
-                'OUTPUT',
-                'Sortie'
-            )
-        )
+        super().initAlgorithm(config)
 
     def processAlgorithm(self, parameters, context, feedback):
         layer = self.parameterAsVectorLayer(parameters, 'INPUT_LAYER', context)
@@ -58,34 +61,6 @@ class InvalidGeometryAlgorithm(QgsProcessingAlgorithm):
                         geom.centroid()
                     ])
 
-        if invalid_geometries:
-            controlpoint_layer = ControlPointLayer('Géométrie invalide')
-            controlpoint_layer.add_features(invalid_geometries)
-            controlpoint_layer.save_as_temp_layer()
+        self.report_issues(invalid_geometries)
 
-        return {'OUTPUT': 'Traitement terminé'}
-
-    def name(self):
-        """Identifiant unique de l'algorithme"""
-        return 'A.16'
-
-    def displayName(self):
-        """Nom affiché de l'algorithme"""
-        return "Géométrie invalide"
-
-    def group(self):
-        """Nom du groupe"""
-        return 'Controles génériques géométriques'
-
-    def groupId(self):
-        """Identifiant du groupe"""
-        return 'A'
-
-    def shortHelpString(self):
-        """Description de l'algorithme"""
-        return \
-            "Vérifie que la géométrie est valide"
-
-    def createInstance(self):
-        """Crée une nouvelle instance de l'algorithme"""
-        return InvalidGeometryAlgorithm()
+        return self.processing_done_result()

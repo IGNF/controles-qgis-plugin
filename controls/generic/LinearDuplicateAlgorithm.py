@@ -1,37 +1,42 @@
 from qgis.core import (
-QgsProcessingAlgorithm,
-QgsProcessingParameterVectorLayer,
-QgsProcessing,
-QgsProcessingParameterFeatureSink,
-QgsWkbTypes
+    QgsProcessingParameterVectorLayer,
+    QgsProcessing,
+    QgsWkbTypes
 )
-from ControlPointLayer import ControlPointLayer
+
+from BaseControlAlgorithm import BaseControlAlgorithm
 
 
-class LinearDuplicateAlgorithm(QgsProcessingAlgorithm):
+class LinearDuplicateAlgorithm(BaseControlAlgorithm):
+
+    ALG_NAME = 'A.06'
+    ALG_DISPLAY_NAME = "Doublons partiels linéaires"
+    ALG_GROUP = 'Controles génériques géométriques'
+    ALG_GROUP_ID = 'A'
+    ALG_HELP = (
+        "Ce contrôle détecte des objets linéaires de même couche ayant une géométrie commune."
+        "Il ne tient pas compte des attributs et ne détecte pas les superpositions entre objets de couches différentes"
+    )
+
+    INPUT_LAYER = 'INPUT_LAYER'
 
     def initAlgorithm(self, config=None):
         self.addParameter(
             QgsProcessingParameterVectorLayer(
-                'INPUT_LAYER',
-                "Couche en entrée",
+                self.INPUT_LAYER,
+                self.tr("Couche en entrée"),
                 types=[QgsProcessing.TypeVectorLine]
             )
         )
-        self.addParameter(
-            QgsProcessingParameterFeatureSink(
-                'OUTPUT',
-                "Sortie"
-            )
-        )
+        super().initAlgorithm(config)
 
     def processAlgorithm(self, parameters, context, feedback):
-        layer = self.parameterAsVectorLayer(parameters, 'INPUT_LAYER', context)
+        layer = self.parameterAsVectorLayer(parameters, self.INPUT_LAYER, context)
 
         geom_type = QgsWkbTypes.geometryType(layer.wkbType())
         if geom_type != QgsWkbTypes.LineGeometry:
-            feedback.reportError(f"{layer.name()} n'est pas linéaire")
-            return {'OUTPUT': 'Traitement terminé'}
+            feedback.reportError(self.tr("{} n'est pas linéaire").format(layer.name()))
+            return self.processing_done_result()
 
         doublons = []
         features = list(layer.getFeatures())
@@ -56,34 +61,6 @@ class LinearDuplicateAlgorithm(QgsProcessingAlgorithm):
                             intersection.pointOnSurface()
                         ])
 
-        if doublons:
-            controlpoint_layer = ControlPointLayer("Doublons linéaires")
-            controlpoint_layer.add_features(doublons)
-            controlpoint_layer.save_as_temp_layer()
+        self.report_issues(doublons, "Doublons linéaires")
 
-        return {'OUTPUT': 'Traitement terminé'}
-
-    def name(self):
-        """Identifiant unique de l'algorithme"""
-        return 'A.06'
-
-    def displayName(self):
-        """Nom affiché de l'algorithme"""
-        return "Doublons partiels linéaires"
-
-    def group(self):
-        """Nom du groupe"""
-        return 'Controles génériques géométriques'
-
-    def groupId(self):
-        """Identifiant du groupe"""
-        return 'A'
-
-    def shortHelpString(self):
-        """Description de l'algorithme"""
-        return "Ce contrôle détecte des objets linéaires de même couche ayant une géométrie commune."\
-               "Il ne tient pas compte des attributs et ne détecte pas les superpositions entre objets de couches différentes"
-
-    def createInstance(self):
-        """Crée une nouvelle instance de l'algorithme"""
-        return LinearDuplicateAlgorithm()
+        return self.processing_done_result()

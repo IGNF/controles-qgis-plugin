@@ -1,43 +1,49 @@
 from qgis.core import (
-QgsProcessingAlgorithm,
-QgsProcessingParameterVectorLayer,
-QgsProcessing,
-QgsProcessingParameterField,
-QgsProcessingParameterFeatureSink,
-NULL
+    QgsProcessingParameterVectorLayer,
+    QgsProcessing,
+    QgsProcessingParameterField,
+    NULL
 )
-from ControlPointLayer import ControlPointLayer
 import json
 
+from BaseControlAlgorithm import BaseControlAlgorithm
 
-class JsonSyntaxAlgorithm(QgsProcessingAlgorithm):
+
+class JsonSyntaxAlgorithm(BaseControlAlgorithm):
+
+    ALG_NAME = 'C.12'
+    ALG_DISPLAY_NAME = "Syntaxe des champs JSON"
+    ALG_GROUP = 'Controles génériques attributaires'
+    ALG_GROUP_ID = 'C'
+    ALG_HELP = (
+        "Le but de ce contrôle est de s’assurer que la syntaxe définie pour les champs de format JSON est respectée."
+        "Il s’agit de vérifier que les clés et les valeurs de clés sont conformes à ce qui est spécifié."
+    )
+
+    INPUT_LAYER = 'INPUT_LAYER'
+    FIELDS = 'FIELDS'
 
     def initAlgorithm(self, config=None):
         self.addParameter(
             QgsProcessingParameterVectorLayer(
-                'INPUT_LAYER',
-                "Couche en entrée",
+                self.INPUT_LAYER,
+                self.tr("Couche en entrée"),
                 types=[QgsProcessing.TypeVectorAnyGeometry]
             )
         )
         self.addParameter(
             QgsProcessingParameterField(
-                'FIELDS',
-                'Champs à vérifier',
-                parentLayerParameterName='INPUT_LAYER',
+                self.FIELDS,
+                self.tr('Champs à vérifier'),
+                parentLayerParameterName=self.INPUT_LAYER,
                 allowMultiple=True
             )
         )
-        self.addParameter(
-            QgsProcessingParameterFeatureSink(
-                'OUTPUT',
-                'Sortie'
-            )
-        )
+        super().initAlgorithm(config)
 
     def processAlgorithm(self, parameters, context, feedback):
-        layer = self.parameterAsVectorLayer(parameters, 'INPUT_LAYER', context)
-        fields = self.parameterAsFields(parameters, 'FIELDS', context)
+        layer = self.parameterAsVectorLayer(parameters, self.INPUT_LAYER, context)
+        fields = self.parameterAsFields(parameters, self.FIELDS, context)
 
         json_attributes = []
 
@@ -55,35 +61,6 @@ class JsonSyntaxAlgorithm(QgsProcessingAlgorithm):
                                        'La syntaxe JSON du champ {} est incorrecte'.format(feature[att]),
                                        feature.geometry().pointOnSurface()])
 
-        if json_attributes != []:
-            controlpoint_layer = ControlPointLayer('Syntaxe des champs JSON')
-            controlpoint_layer.add_features(json_attributes)
-            controlpoint_layer.save_as_temp_layer()
+        self.report_issues(json_attributes, 'Syntaxe des champs JSON')
 
-        return {'OUTPUT': 'Traitement terminé'}
-
-    def name(self):
-        """Identifiant unique de l'algorithme"""
-        return 'C.12'
-
-    def displayName(self):
-        """Nom affiché de l'algorithme"""
-        return "Syntaxe des champs JSON"
-
-    def group(self):
-        """Nom du groupe"""
-        return 'Controles génériques attributaires'
-
-    def groupId(self):
-        """Identifiant du groupe"""
-        return 'C'
-
-    def shortHelpString(self):
-        """Description de l'algorithme"""
-        return \
-            "Le but de ce contrôle est de s’assurer que la syntaxe définie pour les champs de format JSON est respectée."\
-            "Il s’agit de vérifier que les clés et les valeurs de clés sont conformes à ce qui est spécifié."
-
-    def createInstance(self):
-        """Crée une nouvelle instance de l'algorithme"""
-        return JsonSyntaxAlgorithm()
+        return self.processing_done_result()

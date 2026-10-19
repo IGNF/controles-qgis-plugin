@@ -1,67 +1,75 @@
 from qgis.core import (
-    QgsProcessingAlgorithm,
     QgsProcessingParameterVectorLayer,
     QgsProcessingParameterField,
     QgsProcessing,
-    QgsProcessingParameterFeatureSink,
     QgsGeometry,
     QgsPointXY
 )
-from ControlPointLayer import ControlPointLayer
+
+from BaseControlAlgorithm import BaseControlAlgorithm
 
 
-class WatercourseContinuityAlgorithm(QgsProcessingAlgorithm):
+class WatercourseContinuityAlgorithm(BaseControlAlgorithm):
+
+    ALG_NAME = 'G.08'
+    ALG_DISPLAY_NAME = "Continuité des cours d'eau"
+    ALG_GROUP = 'Controles du thème hydrographique'
+    ALG_GROUP_ID = 'G'
+    ALG_HELP = (
+        "Ce contrôle recherche les discontinuités de tracé des objets complexes hydrographiques, "
+        "constitués de tronçons hydrographiques et les tracés des objets complexes dotés de plus de 2 extrémités."
+    )
+
+    COMPLEX_LAYER = 'COMPLEX_LAYER'
+    COMPLEX_KEY_FIELD = 'COMPLEX_KEY_FIELD'
+    SEGMENT_LAYER = 'SEGMENT_LAYER'
+    SEGMENT_KEY_FIELD = 'SEGMENT_KEY_FIELD'
 
     def initAlgorithm(self, config=None):
         self.addParameter(
             QgsProcessingParameterVectorLayer(
-                'COMPLEX_LAYER',
-                "Couche des objets complexes hydrographiques",
+                self.COMPLEX_LAYER,
+                self.tr("Couche des objets complexes hydrographiques"),
                 types=[QgsProcessing.TypeVectorPoint]
             )
         )
         self.addParameter(
             QgsProcessingParameterField(
-                'COMPLEX_KEY_FIELD',
-                "Champ clé de l'objet complexe",
-                parentLayerParameterName='COMPLEX_LAYER',
+                self.COMPLEX_KEY_FIELD,
+                self.tr("Champ clé de l'objet complexe"),
+                parentLayerParameterName=self.COMPLEX_LAYER,
                 type=QgsProcessingParameterField.Any
             )
         )
         self.addParameter(
             QgsProcessingParameterVectorLayer(
-                'SEGMENT_LAYER',
-                "Couche des tronçons hydrographiques (lignes)",
+                self.SEGMENT_LAYER,
+                self.tr("Couche des tronçons hydrographiques (lignes)"),
                 types=[QgsProcessing.TypeVectorLine]
             )
         )
         self.addParameter(
             QgsProcessingParameterField(
-                'SEGMENT_KEY_FIELD',
-                "Champ clé de liaison dans les tronçons",
-                parentLayerParameterName='SEGMENT_LAYER',
+                self.SEGMENT_KEY_FIELD,
+                self.tr("Champ clé de liaison dans les tronçons"),
+                parentLayerParameterName=self.SEGMENT_LAYER,
                 type=QgsProcessingParameterField.Any
             )
         )
-        self.addParameter(
-            QgsProcessingParameterFeatureSink(
-                'OUTPUT',
-                'Sortie'
-            )
-        )
+        super().initAlgorithm(config)
 
     def processAlgorithm(self, parameters, context, feedback):
-        complex_layer = self.parameterAsVectorLayer(parameters, 'COMPLEX_LAYER', context)
-        complex_key_field = self.parameterAsString(parameters, 'COMPLEX_KEY_FIELD', context)
-        segment_layer = self.parameterAsVectorLayer(parameters, 'SEGMENT_LAYER', context)
-        segment_key_field = self.parameterAsString(parameters, 'SEGMENT_KEY_FIELD', context)
+        complex_layer = self.parameterAsVectorLayer(parameters, self.COMPLEX_LAYER, context)
+        complex_key_field = self.parameterAsString(parameters, self.COMPLEX_KEY_FIELD, context)
+        segment_layer = self.parameterAsVectorLayer(parameters, self.SEGMENT_LAYER, context)
+        segment_key_field = self.parameterAsString(parameters, self.SEGMENT_KEY_FIELD, context)
 
         if complex_key_field not in complex_layer.fields().names():
-            feedback.reportError(f"Le champ clé '{complex_key_field}' n'existe pas dans la couche des objets complexes")
+            feedback.reportError(self.tr("Le champ clé '{}' n'existe pas dans la couche des objets complexes").format(complex_key_field))
             return {'OUTPUT': 'Erreur'}
 
         if segment_key_field not in segment_layer.fields().names():
-            feedback.reportError(f"Le champ clé '{segment_key_field}' n'existe pas dans la couche des tronçons")
+            feedback.reportError(self.tr("Le champ clé '{}' n'existe pas dans la couche des tronçons").format(segment_key_field))
             return {'OUTPUT': 'Erreur'}
 
         # Regrouper les tronçons par valeur de la clé de l'objet complexe
@@ -153,35 +161,6 @@ class WatercourseContinuityAlgorithm(QgsProcessingAlgorithm):
                             endpoint_geom
                         ])
 
-        if invalid_features:
-            controlpoint_layer = ControlPointLayer("Continuité des cours d'eau")
-            controlpoint_layer.add_features(invalid_features)
-            controlpoint_layer.save_as_temp_layer()
+        self.report_issues(invalid_features, "Continuité des cours d'eau")
 
-        return {'OUTPUT': 'Traitement terminé'}
-
-    def name(self):
-        """Identifiant unique de l'algorithme"""
-        return 'G.08'
-
-    def displayName(self):
-        """Nom affiché de l'algorithme"""
-        return "Continuité des cours d'eau"
-
-    def group(self):
-        """Nom du groupe"""
-        return 'Controles du thème hydrographique'
-
-    def groupId(self):
-        """Identifiant du groupe"""
-        return 'G'
-
-    def shortHelpString(self):
-        """Description de l'algorithme"""
-        return \
-            "Ce contrôle recherche les discontinuités de tracé des objets complexes hydrographiques, "\
-            "constitués de tronçons hydrographiques et les tracés des objets complexes dotés de plus de 2 extrémités."
-
-    def createInstance(self):
-        """Crée une nouvelle instance de l'algorithme"""
-        return WatercourseContinuityAlgorithm()
+        return self.processing_done_result()

@@ -1,37 +1,40 @@
 from qgis.core import (
-QgsProcessingAlgorithm,
 QgsProcessingParameterVectorLayer,
 QgsProcessing,
-QgsProcessingParameterFeatureSink,
 QgsWkbTypes,
 )
-from ControlPointLayer import ControlPointLayer
 
-class SelfIntersectionAlgorithm(QgsProcessingAlgorithm):
+from BaseControlAlgorithm import BaseControlAlgorithm
+
+
+class SelfIntersectionAlgorithm(BaseControlAlgorithm):
+
+    ALG_NAME = 'A.10'
+    ALG_DISPLAY_NAME = "Auto-intersections"
+    ALG_GROUP = 'Controles génériques géométriques'
+    ALG_GROUP_ID = 'A'
+    ALG_HELP = "Ce contrôle détecte les objets s’intersectant eux-mêmes. "
+
+    INPUT_LAYER = 'INPUT_LAYER'
 
     def initAlgorithm(self, config=None):
         self.addParameter(
             QgsProcessingParameterVectorLayer(
-                'INPUT_LAYER',
-                "Couche en entrée",
+                self.INPUT_LAYER,
+                self.tr("Couche en entrée"),
                 types=[QgsProcessing.TypeVectorAnyGeometry]
             )
         )
-        self.addParameter(
-            QgsProcessingParameterFeatureSink(
-                'OUTPUT',
-                'Sortie'
-            )
-        )
+        super().initAlgorithm(config)
 
     def processAlgorithm(self, parameters, context, feedback):
-        layer = self.parameterAsVectorLayer(parameters, 'INPUT_LAYER', context)
+        layer = self.parameterAsVectorLayer(parameters, self.INPUT_LAYER, context)
 
         self_intersection_issues = []
         geom_type = layer.geometryType()
         if geom_type not in [QgsWkbTypes.LineGeometry, QgsWkbTypes.PolygonGeometry]:
-            feedback.reportError(f"La couche {layer.name()} n'est ni linéaire ni surfacique")
-            return {'OUTPUT': 'Traitement terminé'}
+            feedback.reportError(self.tr("La couche {} n'est ni linéaire ni surfacique").format(layer.name()))
+            return self.processing_done_result()
 
         for feature in layer.getFeatures():
             geom = feature.geometry()
@@ -47,34 +50,7 @@ class SelfIntersectionAlgorithm(QgsProcessingAlgorithm):
                     geom.pointOnSurface()
                 ])
 
-        if self_intersection_issues:
-            controlpoint_layer = ControlPointLayer('Auto-intersections')
-            controlpoint_layer.add_features(self_intersection_issues)
-            controlpoint_layer.save_as_temp_layer()
+        self.report_issues(self_intersection_issues, 'Auto-intersections')
 
-        return {'OUTPUT': 'Traitement terminé'}
+        return self.processing_done_result()
 
-    def name(self):
-        """Identifiant unique de l'algorithme"""
-        return 'A.10'
-
-    def displayName(self):
-        """Nom affiché de l'algorithme"""
-        return "Auto-intersections"
-
-    def group(self):
-        """Nom du groupe"""
-        return 'Controles génériques géométriques'
-
-    def groupId(self):
-        """Identifiant du groupe"""
-        return 'A'
-
-    def shortHelpString(self):
-        """Description de l'algorithme"""
-        return \
-            "Ce contrôle détecte les objets s’intersectant eux-mêmes. "
-
-    def createInstance(self):
-        """Crée une nouvelle instance de l'algorithme"""
-        return SelfIntersectionAlgorithm()

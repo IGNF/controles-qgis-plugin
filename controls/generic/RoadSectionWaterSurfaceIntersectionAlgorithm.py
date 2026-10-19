@@ -1,56 +1,59 @@
 from qgis.core import (
-QgsProcessingAlgorithm,
-QgsProcessingParameterVectorLayer,
-QgsProcessing,
-QgsProcessingParameterFeatureSink,
-QgsSpatialIndex,
-QgsWkbTypes,
-QgsProcessingParameterFile,
-QgsFeatureRequest
+    QgsProcessingParameterVectorLayer,
+    QgsProcessing,
+    QgsSpatialIndex,
+    QgsProcessingParameterFile,
+    QgsFeatureRequest
 )
-from ControlPointLayer import ControlPointLayer
-import json
+
+from BaseControlAlgorithm import BaseControlAlgorithm
 
 
-class RoadSectionWaterSurfaceIntersectionAlgorithm(QgsProcessingAlgorithm):
+class RoadSectionWaterSurfaceIntersectionAlgorithm(BaseControlAlgorithm):
+
+    ALG_NAME = 'A.18'
+    ALG_DISPLAY_NAME = "Intersection de tronçons de route avec des surfaces d’eau"
+    ALG_GROUP = 'Controles génériques géométriques'
+    ALG_GROUP_ID = 'A'
+    ALG_HELP = (
+        "Ce contrôle détecte les tronçons de route traversant des surfaces hydrographiques permanentes et "
+        "les tronçons de route inclus dans ces mêmes surfaces"
+    )
+
+    ROAD_LAYER = 'ROAD_LAYER'
+    WATER_LAYER = 'WATER_LAYER'
 
     def initAlgorithm(self, config=None):
         self.addParameter(
             QgsProcessingParameterVectorLayer(
-                'ROAD_LAYER',
-                "Couche de route en entrée",
+                self.ROAD_LAYER,
+                self.tr("Couche de route en entrée"),
                 types=[QgsProcessing.TypeVectorLine]
             )
         )
         self.addParameter(
             QgsProcessingParameterVectorLayer(
-                'WATER_LAYER',
-                "Couche de surface d'eau en entrée",
+                self.WATER_LAYER,
+                self.tr("Couche de surface d'eau en entrée"),
                 types=[QgsProcessing.TypeVectorPolygon]
             )
         )
         self.addParameter(
             QgsProcessingParameterFile(
-                'PARAM_JSON',
-                'Paramètres JSON',
+                self.PARAM_JSON,
+                self.tr('Paramètres JSON'),
                 extension='json'
             )
         )
-        self.addParameter(
-            QgsProcessingParameterFeatureSink(
-                'OUTPUT',
-                'Sortie'
-            )
-        )
+        super().initAlgorithm(config)
 
     def processAlgorithm(self, parameters, context, feedback):
-        road_layer = self.parameterAsVectorLayer(parameters, 'ROAD_LAYER', context)
-        water_layer = self.parameterAsVectorLayer(parameters, 'WATER_LAYER', context)
-        json_path = self.parameterAsFile(parameters, 'PARAM_JSON', context)
+        road_layer = self.parameterAsVectorLayer(parameters, self.ROAD_LAYER, context)
+        water_layer = self.parameterAsVectorLayer(parameters, self.WATER_LAYER, context)
+        json_path = self.parameterAsFile(parameters, self.PARAM_JSON, context)
 
         # param_json : {'couche': ['attribut1', 'attribut2', ...], ...}
-        with open(json_path, "r", encoding="utf-8") as f:
-            param_json = json.load(f)
+        param_json = self.load_json_parameters(json_path)
 
         road_filters = param_json[road_layer.name()]
         water_filters = param_json[water_layer.name()]
@@ -97,35 +100,7 @@ class RoadSectionWaterSurfaceIntersectionAlgorithm(QgsProcessingAlgorithm):
                                                'geometry',
                                                 'Ce tronçon de route traverse une surface hydrographique',
                                                 intersection_geom.centroid()])
-        if intersect_features != []:
-            controlpoint_layer = ControlPointLayer('Intersection de tronçons de route avec des surfaces d’eau')
-            controlpoint_layer.add_features(intersect_features)
-            controlpoint_layer.save_as_temp_layer()
 
-        return {'OUTPUT': 'Traitement terminé'}
+        self.report_issues(intersect_features, 'Intersection de tronçons de route avec des surfaces d’eau')
 
-    def name(self):
-        """Identifiant unique de l'algorithme"""
-        return 'A.18'
-
-    def displayName(self):
-        """Nom affiché de l'algorithme"""
-        return "Intersection de tronçons de route avec des surfaces d’eau"
-
-    def group(self):
-        """Nom du groupe"""
-        return 'Controles génériques géométriques'
-
-    def groupId(self):
-        """Identifiant du groupe"""
-        return 'A'
-
-    def shortHelpString(self):
-        """Description de l'algorithme"""
-        return \
-            "Ce contrôle détecte les tronçons de route traversant des surfaces hydrographiques permanentes et "\
-            "les tronçons de route inclus dans ces mêmes surfaces"
-
-    def createInstance(self):
-        """Crée une nouvelle instance de l'algorithme"""
-        return RoadSectionWaterSurfaceIntersectionAlgorithm()
+        return self.processing_done_result()

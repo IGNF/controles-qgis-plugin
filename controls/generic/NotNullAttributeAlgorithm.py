@@ -1,42 +1,45 @@
 from qgis.core import (
-QgsProcessingAlgorithm,
-QgsProcessingParameterVectorLayer,
-QgsProcessing,
-QgsProcessingParameterField,
-QgsProcessingParameterFeatureSink,
-NULL
+    QgsProcessingParameterVectorLayer,
+    QgsProcessing,
+    QgsProcessingParameterField,
+    NULL
 )
-from ControlPointLayer import ControlPointLayer
+
+from BaseControlAlgorithm import BaseControlAlgorithm
 
 
-class NotNullAttributeAlgorithm(QgsProcessingAlgorithm):
+class NotNullAttributeAlgorithm(BaseControlAlgorithm):
+
+    ALG_NAME = 'C.01'
+    ALG_DISPLAY_NAME = "Attributs vides"
+    ALG_GROUP = 'Controles génériques attributaires'
+    ALG_GROUP_ID = 'C'
+    ALG_HELP = "Vérifie les attributs qui ne doivent pas être vides"
+
+    INPUT_LAYER = 'INPUT_LAYER'
+    FIELDS = 'FIELDS'
 
     def initAlgorithm(self, config=None):
         self.addParameter(
             QgsProcessingParameterVectorLayer(
-                'INPUT_LAYER',
-                "Couche en entrée",
+                self.INPUT_LAYER,
+                self.tr("Couche en entrée"),
                 types=[QgsProcessing.TypeVectorAnyGeometry]
             )
         )
         self.addParameter(
             QgsProcessingParameterField(
-                'FIELDS',
-                'Champs à vérifier',
-                parentLayerParameterName='INPUT_LAYER',
+                self.FIELDS,
+                self.tr('Champs à vérifier'),
+                parentLayerParameterName=self.INPUT_LAYER,
                 allowMultiple=True
             )
         )
-        self.addParameter(
-            QgsProcessingParameterFeatureSink(
-                'OUTPUT',
-                'Sortie'
-            )
-        )
+        super().initAlgorithm(config)
 
     def processAlgorithm(self, parameters, context, feedback):
-        layer = self.parameterAsVectorLayer(parameters, 'INPUT_LAYER', context)
-        fields = self.parameterAsFields(parameters, 'FIELDS', context)
+        layer = self.parameterAsVectorLayer(parameters, self.INPUT_LAYER, context)
+        fields = self.parameterAsFields(parameters, self.FIELDS, context)
 
         null_attributes_feature = []
 
@@ -51,33 +54,6 @@ class NotNullAttributeAlgorithm(QgsProcessingAlgorithm):
                         'Champs vides pour {}'.format(layer.name()),
                         feature.geometry().pointOnSurface()])
 
-        if null_attributes_feature:
-            controlpoint_layer = ControlPointLayer('Attributs vides')
-            controlpoint_layer.add_features(null_attributes_feature)
-            controlpoint_layer.save_as_temp_layer()
+        self.report_issues(null_attributes_feature, 'Attributs vides')
 
-        return {'OUTPUT': 'Traitement terminé'}
-
-    def name(self):
-        """Identifiant unique de l'algorithme"""
-        return 'C.01'
-
-    def displayName(self):
-        """Nom affiché de l'algorithme"""
-        return "Attributs vides"
-
-    def group(self):
-        """Nom du groupe"""
-        return 'Controles génériques attributaires'
-
-    def groupId(self):
-        """Identifiant du groupe"""
-        return 'C'
-
-    def shortHelpString(self):
-        """Description de l'algorithme"""
-        return "Vérifie les attributs qui ne doivent pas être vides"
-
-    def createInstance(self):
-        """Crée une nouvelle instance de l'algorithme"""
-        return NotNullAttributeAlgorithm()
+        return self.processing_done_result()

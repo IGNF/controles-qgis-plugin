@@ -1,104 +1,80 @@
 from qgis.core import (
-    QgsProcessingAlgorithm,
     QgsProcessingParameterVectorLayer,
     QgsProcessingParameterMultipleLayers,
     QgsProcessing,
     QgsProcessingParameterFile,
-    QgsProcessingParameterFeatureSink,
     QgsProcessingParameterDistance,
     QgsSpatialIndex,
-    QgsWkbTypes,
     QgsFeature
 )
-from ControlPointLayer import ControlPointLayer
-import json
+
+from BaseControlAlgorithm import BaseControlAlgorithm
 
 
-class BuildingResidentialZoneProximityAlgorithm(QgsProcessingAlgorithm):
+class BuildingResidentialZoneProximityAlgorithm(BaseControlAlgorithm):
 
+    ALG_NAME = 'F.04'
+    ALG_DISPLAY_NAME = "Proximité Bâti / Zone d'habitation"
+    ALG_GROUP = 'Controles du thème Bati'
+    ALG_GROUP_ID = 'F'
+    ALG_HELP = (
+        "Ce contrôle détecte les objets Zone d'habitation de Nature = ‘Lieu-dit habité’ ou ‘Quartier’, d’Importance différente de ‘6’ ou dont le toponyme ne contient pas 'Commune', qui ne sont pas à moins de 250 m d'un objet Bâti / Bâtiment."
+        "Il détecte également les objets Zone d'habitation de Nature = ‘Ruines’ qui ne sont pas à moins de 250 m d'un objet Construction linéaire de Nature = ‘Ruines’. Le contrôle est placé sur les objets incriminés."
+    )
 
-    def name(self):
-        """Identifiant unique de l'algorithme"""
-        return 'F.04'
-
-    def displayName(self):
-        """Nom affiché de l'algorithme"""
-        return "Proximité Bâti / Zone d'habitation"
-
-    def group(self):
-        """Nom du groupe"""
-        return 'Controles du thème Bati'
-
-    def groupId(self):
-        """Identifiant du groupe"""
-        return 'F'
-
-    def shortHelpString(self):
-        """Description de l'algorithme"""
-        return (
-            "Ce contrôle détecte les objets Zone d'habitation de Nature = ‘Lieu-dit habité’ ou ‘Quartier’, d’Importance différente de ‘6’ ou dont le toponyme ne contient pas 'Commune', qui ne sont pas à moins de 250 m d'un objet Bâti / Bâtiment."\
-            "Il détecte également les objets Zone d'habitation de Nature = ‘Ruines’ qui ne sont pas à moins de 250 m d'un objet Construction linéaire de Nature = ‘Ruines’. Le contrôle est placé sur les objets incriminés."
-        )
-
-    def createInstance(self):
-        """Crée une nouvelle instance de l'algorithme"""
-        return BuildingResidentialZoneProximityAlgorithm()
+    RESIDENTIAL_ZONE_LAYER = 'RESIDENTIAL_ZONE_LAYER'
+    BUILDING_LAYERS = 'BUILDING_LAYERS'
+    DISTANCE = 'DISTANCE'
 
     def initAlgorithm(self, config=None):
         self.addParameter(
             QgsProcessingParameterVectorLayer(
-                'RESIDENTIAL_ZONE_LAYER',
-                "Couche Zone d'habitation",
+                self.RESIDENTIAL_ZONE_LAYER,
+                self.tr("Couche Zone d'habitation"),
                 types=[QgsProcessing.TypeVectorAnyGeometry]
             )
         )
         self.addParameter(
             QgsProcessingParameterMultipleLayers(
-                'BUILDING_LAYERS',
-                "Couches Bâti / Bâtiment et Construction linéaire",
+                self.BUILDING_LAYERS,
+                self.tr("Couches Bâti / Bâtiment et Construction linéaire"),
                 layerType=QgsProcessing.TypeVector
             )
         )
         self.addParameter(
             QgsProcessingParameterFile(
-                'PARAM_JSON',
-                'Paramètres JSON',
+                self.PARAM_JSON,
+                self.tr('Paramètres JSON'),
                 extension='json'
             )
         )
         self.addParameter(
             QgsProcessingParameterDistance(
-                'DISTANCE',
-                'Distance de proximité (m)',
+                self.DISTANCE,
+                self.tr('Distance de proximité (m)'),
                 defaultValue=250,
-                parentParameterName='RESIDENTIAL_ZONE_LAYER',
+                parentParameterName=self.RESIDENTIAL_ZONE_LAYER,
                 minValue=0
             )
         )
-        self.addParameter(
-            QgsProcessingParameterFeatureSink(
-                'OUTPUT',
-                'Sortie'
-            )
-        )
+        super().initAlgorithm(config)
 
     def processAlgorithm(self, parameters, context, feedback):
-        residential_layer = self.parameterAsVectorLayer(parameters, 'RESIDENTIAL_ZONE_LAYER', context)
-        input_layers = self.parameterAsLayerList(parameters, 'BUILDING_LAYERS', context)
-        json_path = self.parameterAsFile(parameters, 'PARAM_JSON', context)
-        distance = self.parameterAsDouble(parameters, 'DISTANCE', context)
+        residential_layer = self.parameterAsVectorLayer(parameters, self.RESIDENTIAL_ZONE_LAYER, context)
+        input_layers = self.parameterAsLayerList(parameters, self.BUILDING_LAYERS, context)
+        json_path = self.parameterAsFile(parameters, self.PARAM_JSON, context)
+        distance = self.parameterAsDouble(parameters, self.DISTANCE, context)
 
-        with open(json_path, "r", encoding="utf-8") as f:
-            param_json = json.load(f)
+        param_json = self.load_json_parameters(json_path)
 
-        residential_params = param_json[residential_layer.name()]
+        residential_params = self.get_layer_json_parameters(param_json, residential_layer, feedback)
+        if residential_params is None:
+            return self.processing_done_result()
+
         for building_layer in input_layers:
-            if building_layer.name() not in param_json.keys():
-                feedback.reportError(
-                    "{} n'est pas présent dans le fichier json de paramétrage".format(building_layer.name()))
-                return {'OUTPUT': 'Traitement terminé'}
-
-            params = param_json[building_layer.name()]
+            params = self.get_layer_json_parameters(param_json, building_layer, feedback)
+            if params is None:
+                return self.processing_done_result()
 
         # Index spatial pour la recherche des Bâti / Bâtiment les plus proches
         building_index, building_features = self._build_index(building_layer)
@@ -123,12 +99,9 @@ class BuildingResidentialZoneProximityAlgorithm(QgsProcessingAlgorithm):
                             "Pas de Bâtiment à moins de {}m de la Zone d'habitation".format(distance),
                             zone.geometry().pointOnSurface()
                         ])
-        if issues:
-            controlpoint_layer = ControlPointLayer("Proximité Bâti / Zone d'habitation")
-            controlpoint_layer.add_features(issues)
-            controlpoint_layer.save_as_temp_layer()
+        self.report_issues(issues)
 
-        return {'OUTPUT': 'Traitement terminé'}
+        return self.processing_done_result()
 
     @staticmethod
     def _build_index(layers, feature_filter=None):

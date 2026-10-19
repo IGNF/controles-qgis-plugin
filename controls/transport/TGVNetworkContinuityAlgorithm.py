@@ -1,67 +1,71 @@
 from qgis.core import (
-QgsProcessingAlgorithm,
-QgsProcessingParameterVectorLayer,
-QgsProcessing,
-QgsProcessingParameterField,
-QgsProcessingParameterFeatureSink,
-QgsWkbTypes,
-QgsGeometry,
-QgsPointXY
+    QgsProcessingParameterVectorLayer,
+    QgsProcessing,
+    QgsProcessingParameterField,
+    QgsWkbTypes,
+    QgsGeometry,
+    QgsPointXY
 )
-from ControlPointLayer import ControlPointLayer
 from FieldValuesParameter import QgsProcessingParameterFieldValues, field_values_as_string_list
 
+from BaseControlAlgorithm import BaseControlAlgorithm
 
-class TGVNetworkContinuityAlgorithm(QgsProcessingAlgorithm):
+
+class TGVNetworkContinuityAlgorithm(BaseControlAlgorithm):
+
+    ALG_NAME = 'I.03'
+    ALG_DISPLAY_NAME = "Continuité du réseau TGV"
+    ALG_GROUP = 'Controles du thème Transport'
+    ALG_GROUP_ID = 'I'
+    ALG_HELP = "Ce contrôle détecte toutes les discontinuités du graphe formé par les tronçons de voie ferrée dont le champ Nature = 'LGV’"
+
+    INPUT_LAYER = 'INPUT_LAYER'
+    NATURE_FIELD = 'NATURE_FIELD'
+    NATURE_VALUES = 'NATURE_VALUES'
 
     def initAlgorithm(self, config=None):
         self.addParameter(
             QgsProcessingParameterVectorLayer(
-                'INPUT_LAYER',
-                "Couche en entrée",
+                self.INPUT_LAYER,
+                self.tr("Couche en entrée"),
                 types=[QgsProcessing.TypeVectorLine]
             )
         )
         self.addParameter(
             QgsProcessingParameterField(
-                'NATURE_FIELD',
-                "Champ Nature",
-                parentLayerParameterName='INPUT_LAYER',
+                self.NATURE_FIELD,
+                self.tr("Champ Nature"),
+                parentLayerParameterName=self.INPUT_LAYER,
                 type=QgsProcessingParameterField.String
             )
         )
         self.addParameter(
             QgsProcessingParameterFieldValues(
-                'NATURE_VALUES',
-                "Valeurs Nature à contrôler",
-                parentLayerParameterName='INPUT_LAYER',
-                parentFieldParameterName='NATURE_FIELD',
+                self.NATURE_VALUES,
+                self.tr("Valeurs Nature à contrôler"),
+                parentLayerParameterName=self.INPUT_LAYER,
+                parentFieldParameterName=self.NATURE_FIELD,
                 allowMultiple=False,
                 optional=False
             )
         )
-        self.addParameter(
-            QgsProcessingParameterFeatureSink(
-                'OUTPUT',
-                'Sortie'
-            )
-        )
+        super().initAlgorithm(config)
 
     def processAlgorithm(self, parameters, context, feedback):
-        layer = self.parameterAsVectorLayer(parameters, 'INPUT_LAYER', context)
-        nature_field = self.parameterAsString(parameters, 'NATURE_FIELD', context)
+        layer = self.parameterAsVectorLayer(parameters, self.INPUT_LAYER, context)
+        nature_field = self.parameterAsString(parameters, self.NATURE_FIELD, context)
 
         if nature_field not in layer.fields().names():
-            feedback.reportError(f"Le champ Nature '{nature_field}' n'existe pas dans la couche")
+            feedback.reportError(self.tr("Le champ Nature '{}' n'existe pas dans la couche").format(nature_field))
             return {'OUTPUT': 'Erreur'}
 
         # Valeurs sélectionnées dynamiquement via le widget (chaîne séparée par des virgules)
-        nature_values = field_values_as_string_list(self.parameterAsString(parameters, 'NATURE_VALUES', context))
+        nature_values = field_values_as_string_list(self.parameterAsString(parameters, self.NATURE_VALUES, context))
 
         geom_type = QgsWkbTypes.geometryType(layer.wkbType())
         if geom_type != QgsWkbTypes.LineGeometry:
-            feedback.reportError(f"{layer.name()} n'est pas linéaire")
-            return {'OUTPUT': 'Traitement terminé'}
+            feedback.reportError(self.tr("{} n'est pas linéaire").format(layer.name()))
+            return self.processing_done_result()
 
         invalid_features = []
 
@@ -94,7 +98,7 @@ class TGVNetworkContinuityAlgorithm(QgsProcessingAlgorithm):
             segment_endpoints[feature.id()] = (start_key, end_key)
 
         if not segment_endpoints:
-            return {'OUTPUT': 'Traitement terminé'}
+            return self.processing_done_result()
 
         # Les extrémités libres (degré 1) correspondent soit à une discontinuité
         # (plusieurs tronçons non connectés), soit à une ramification du tracé.
@@ -136,35 +140,6 @@ class TGVNetworkContinuityAlgorithm(QgsProcessingAlgorithm):
                         endpoint_geom
                     ])
 
-        if invalid_features:
-            controlpoint_layer = ControlPointLayer("Continuité du réseau TGV")
-            controlpoint_layer.add_features(invalid_features)
-            controlpoint_layer.save_as_temp_layer()
+        self.report_issues(invalid_features, "Continuité du réseau TGV")
 
-        return {'OUTPUT': 'Traitement terminé'}
-
-    def name(self):
-        """Identifiant unique de l'algorithme"""
-        return 'I.03'
-
-    def displayName(self):
-        """Nom affiché de l'algorithme"""
-        return "Continuité du réseau TGV"
-
-    def group(self):
-        """Nom du groupe"""
-        return 'Controles du thème Transport'
-
-    def groupId(self):
-        """Identifiant du groupe"""
-        return 'I'
-
-    def shortHelpString(self):
-        """Description de l'algorithme"""
-        return \
-            ("Ce contrôle détecte toutes les discontinuités du graphe formé par les tronçons de voie ferrée "
-             "dont le champ Nature = 'LGV’")
-
-    def createInstance(self):
-        """Crée une nouvelle instance de l'algorithme"""
-        return TGVNetworkContinuityAlgorithm()
+        return self.processing_done_result()

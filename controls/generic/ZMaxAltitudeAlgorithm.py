@@ -1,43 +1,44 @@
 from qgis.core import (
-    QgsProcessingAlgorithm,
     QgsProcessingParameterVectorLayer,
     QgsProcessingParameterNumber,
-    QgsProcessing,
-    QgsProcessingParameterFile,
-    QgsProcessingParameterFeatureSink,
-    QgsFeatureRequest
+    QgsProcessing
 )
-from ControlPointLayer import ControlPointLayer
+
+from BaseControlAlgorithm import BaseControlAlgorithm
 
 
-class ZMaxAltitudeAlgorithm(QgsProcessingAlgorithm):
+class ZMaxAltitudeAlgorithm(BaseControlAlgorithm):
+
+    ALG_NAME = 'B.07'
+    ALG_DISPLAY_NAME = "Altitudes hors norme"
+    ALG_GROUP = 'Controles génériques Z'
+    ALG_GROUP_ID = 'B'
+    ALG_HELP = "Vérifie le Z maximal de la géométrie de l'objet ne dépasse pas une certaine valeur"
+
+    INPUT_LAYER = 'INPUT_LAYER'
+    MAX_ALTITUDE = 'MAX_ALTITUDE'
 
     def initAlgorithm(self, config=None):
         self.addParameter(
             QgsProcessingParameterVectorLayer(
-                'INPUT_LAYER',
-                "Couche en entrée",
+                self.INPUT_LAYER,
+                self.tr("Couche en entrée"),
                 types=[QgsProcessing.TypeVector]
             )
         )
         self.addParameter(
             QgsProcessingParameterNumber(
-                'MAX_ALTITUDE',
-                'Altitude maximale autorisée (m)',
+                self.MAX_ALTITUDE,
+                self.tr('Altitude maximale autorisée (m)'),
                 type=QgsProcessingParameterNumber.Double,
                 defaultValue=-100
             )
         )
-        self.addParameter(
-            QgsProcessingParameterFeatureSink(
-                'OUTPUT',
-                'Sortie'
-            )
-        )
+        super().initAlgorithm(config)
 
     def processAlgorithm(self, parameters, context, feedback):
-        layer = self.parameterAsVectorLayer(parameters, 'INPUT_LAYER', context)
-        max_altitude = self.parameterAsDouble(parameters, 'MAX_ALTITUDE', context)
+        layer = self.parameterAsVectorLayer(parameters, self.INPUT_LAYER, context)
+        max_altitude = self.parameterAsDouble(parameters, self.MAX_ALTITUDE, context)
 
         invalid_objects = []
 
@@ -71,34 +72,6 @@ class ZMaxAltitudeAlgorithm(QgsProcessingAlgorithm):
                     feature.geometry().pointOnSurface()
                 ])
 
-        if invalid_objects:
-            controlpoint_layer = ControlPointLayer('Altitudes hors norme')
-            controlpoint_layer.add_features(invalid_objects)
-            controlpoint_layer.save_as_temp_layer()
+        self.report_issues(invalid_objects, 'Altitudes hors norme')
 
-        return {'OUTPUT': 'Traitement terminé'}
-
-    def name(self):
-        """Identifiant unique de l'algorithme"""
-        return 'B.07'
-
-    def displayName(self):
-        """Nom affiché de l'algorithme"""
-        return "Altitudes hors norme"
-
-    def group(self):
-        """Nom du groupe"""
-        return 'Controles génériques Z'
-
-    def groupId(self):
-        """Identifiant du groupe"""
-        return 'B'
-
-    def shortHelpString(self):
-        """Description de l'algorithme"""
-        return \
-            "Vérifie le Z maximal de la géométrie de l'objet ne dépasse pas une certaine valeur"
-
-    def createInstance(self):
-        """Crée une nouvelle instance de l'algorithme"""
-        return ZMaxAltitudeAlgorithm()
+        return self.processing_done_result()

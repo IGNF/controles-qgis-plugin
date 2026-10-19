@@ -1,40 +1,45 @@
 from qgis.core import (
-QgsProcessingAlgorithm,
-QgsProcessingParameterVectorLayer,
-QgsProcessing,
-QgsProcessingParameterFeatureSink,
-QgsWkbTypes,
-QgsGeometry,
-QgsPointXY
+    QgsProcessingParameterVectorLayer,
+    QgsProcessing,
+    QgsWkbTypes,
+    QgsGeometry,
+    QgsPointXY
 )
-from ControlPointLayer import ControlPointLayer
+
+from BaseControlAlgorithm import BaseControlAlgorithm
 
 
-class TopologicalInconsistencyAlgorithm(QgsProcessingAlgorithm):
+class TopologicalInconsistencyAlgorithm(BaseControlAlgorithm):
+
+    ALG_NAME = 'A.09'
+    ALG_DISPLAY_NAME = "Incohérences topologiques"
+    ALG_GROUP = 'Controles génériques géométriques'
+    ALG_GROUP_ID = 'A'
+    ALG_HELP = (
+        "Ce contrôle vérifie pour chaque graphe, que les extrémités de tronçon qui ne coïncident pas avec"
+        "l'extrémité d'un autre tronçon ne se trouvent pas à moins de 2 m d'un objet de même couche."
+    )
+
+    INPUT_LAYER = 'INPUT_LAYER'
 
     def initAlgorithm(self, config=None):
         self.addParameter(
             QgsProcessingParameterVectorLayer(
-                'INPUT_LAYER',
-                "Couche en entrée",
+                self.INPUT_LAYER,
+                self.tr("Couche en entrée"),
                 types=[QgsProcessing.TypeVectorLine]
             )
         )
-        self.addParameter(
-            QgsProcessingParameterFeatureSink(
-                'OUTPUT',
-                "Sortie"
-            )
-        )
+        super().initAlgorithm(config)
 
     def processAlgorithm(self, parameters, context, feedback):
-        layer = self.parameterAsVectorLayer(parameters, 'INPUT_LAYER', context)
+        layer = self.parameterAsVectorLayer(parameters, self.INPUT_LAYER, context)
 
         inconsistencies = []
         geom_type = QgsWkbTypes.geometryType(layer.wkbType())
         if geom_type != QgsWkbTypes.LineGeometry:
-            feedback.reportError(f"{layer.name()} n'est pas linéaire")
-            return {'OUTPUT': 'Traitement terminé'}
+            feedback.reportError(self.tr("{} n'est pas linéaire").format(layer.name()))
+            return self.processing_done_result()
 
         features = list(layer.getFeatures())
 
@@ -93,34 +98,6 @@ class TopologicalInconsistencyAlgorithm(QgsProcessingAlgorithm):
                         ])
                         break
 
-        if inconsistencies:
-            controlpoint_layer = ControlPointLayer("Incohérences topologiques")
-            controlpoint_layer.add_features(inconsistencies)
-            controlpoint_layer.save_as_temp_layer()
+        self.report_issues(inconsistencies, "Incohérences topologiques")
 
-        return {'OUTPUT': 'Traitement terminé'}
-
-    def name(self):
-        """Identifiant unique de l'algorithme"""
-        return 'A.09'
-
-    def displayName(self):
-        """Nom affiché de l'algorithme"""
-        return "Incohérences topologiques"
-
-    def group(self):
-        """Nom du groupe"""
-        return 'Controles génériques géométriques'
-
-    def groupId(self):
-        """Identifiant du groupe"""
-        return 'A'
-
-    def shortHelpString(self):
-        """Description de l'algorithme"""
-        return "Ce contrôle vérifie pour chaque graphe, que les extrémités de tronçon qui ne coïncident pas avec"\
-               "l'extrémité d'un autre tronçon ne se trouvent pas à moins de 2 m d'un objet de même couche."
-
-    def createInstance(self):
-        """Crée une nouvelle instance de l'algorithme"""
-        return TopologicalInconsistencyAlgorithm()
+        return self.processing_done_result()

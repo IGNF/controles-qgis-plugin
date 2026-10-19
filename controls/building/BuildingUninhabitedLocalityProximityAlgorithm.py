@@ -1,132 +1,114 @@
 from qgis.core import (
-    QgsProcessingAlgorithm,
     QgsProcessingParameterVectorLayer,
-    QgsProcessingParameterMultipleLayers,
     QgsProcessing,
     QgsProcessingParameterField,
-    QgsProcessingParameterFeatureSink,
     QgsProcessingParameterDistance,
     QgsSpatialIndex,
     QgsFeature
 )
-from ControlPointLayer import ControlPointLayer
 from FieldValuesParameter import QgsProcessingParameterFieldValues, field_values_as_string_list
 
+from BaseControlAlgorithm import BaseControlAlgorithm
 
-class BuildingUninhabitedLocalityProximityAlgorithm(QgsProcessingAlgorithm):
 
+class BuildingUninhabitedLocalityProximityAlgorithm(BaseControlAlgorithm):
 
-    def name(self):
-        """Identifiant unique de l'algorithme"""
-        return 'F.05'
+    ALG_NAME = 'F.05'
+    ALG_DISPLAY_NAME = "Proximité Bâti / Lieu-dit non habité"
+    ALG_GROUP = 'Controles du thème Bati'
+    ALG_GROUP_ID = 'F'
+    ALG_HELP = (
+        "Ce contrôle détecte les objets Lieu-dit non habité de Nature = ‘Lieu-dit non habité’ "
+        "qui sont à moins de 50 m d'un objet Bâtiment ou d'un objet Construction linéaire de Nature = ‘Ruines’"
+    )
 
-    def displayName(self):
-        """Nom affiché de l'algorithme"""
-        return "Proximité Bâti / Lieu-dit non habité"
-
-    def group(self):
-        """Nom du groupe"""
-        return 'Controles du thème Bati'
-
-    def groupId(self):
-        """Identifiant du groupe"""
-        return 'F'
-
-    def shortHelpString(self):
-        """Description de l'algorithme"""
-        return (
-            "Ce contrôle détecte les objets Lieu-dit non habité de Nature = ‘Lieu-dit non habité’ "\
-            "qui sont à moins de 50 m d'un objet Bâtiment ou d'un objet Construction linéaire de Nature = ‘Ruines’"
-        )
-
-    def createInstance(self):
-        """Crée une nouvelle instance de l'algorithme"""
-        return BuildingUninhabitedLocalityProximityAlgorithm()
+    LOCALITY_LAYER = 'LOCALITY_LAYER'
+    LOCALITY_NATURE_FIELD = 'LOCALITY_NATURE_FIELD'
+    LOCALITY_NATURE_VALUE = 'LOCALITY_NATURE_VALUE'
+    BUILDING_LAYERS = 'BUILDING_LAYERS'
+    CONSTRUCTION_NATURE_FIELD = 'CONSTRUCTION_NATURE_FIELD'
+    RUINS_VALUE = 'RUINS_VALUE'
+    DISTANCE = 'DISTANCE'
 
     def initAlgorithm(self, config=None):
         self.addParameter(
             QgsProcessingParameterVectorLayer(
-                'LOCALITY_LAYER',
-                "Couche Lieu-dit non habité",
+                self.LOCALITY_LAYER,
+                self.tr("Couche Lieu-dit non habité"),
                 types=[QgsProcessing.TypeVectorAnyGeometry]
             )
         )
         self.addParameter(
             QgsProcessingParameterField(
-                'LOCALITY_NATURE_FIELD',
-                'Champ Nature lieu dit',
-                parentLayerParameterName='LOCALITY_LAYER',
+                self.LOCALITY_NATURE_FIELD,
+                self.tr('Champ Nature lieu dit'),
+                parentLayerParameterName=self.LOCALITY_LAYER,
                 type=QgsProcessingParameterField.String
             )
         )
         self.addParameter(
             QgsProcessingParameterFieldValues(
-                'LOCALITY_NATURE_VALUE',
-                'Valeur Nature lieu dit',
-                parentLayerParameterName='LOCALITY_LAYER',
-                parentFieldParameterName='LOCALITY_NATURE_FIELD',
+                self.LOCALITY_NATURE_VALUE,
+                self.tr('Valeur Nature lieu dit'),
+                parentLayerParameterName=self.LOCALITY_LAYER,
+                parentFieldParameterName=self.LOCALITY_NATURE_FIELD,
                 allowMultiple=False,
                 optional=False
             )
         )
         self.addParameter(
             QgsProcessingParameterVectorLayer(
-                'BUILDING_LAYERS',
-                "Couches Bâti ou Construction linéaire",
+                self.BUILDING_LAYERS,
+                self.tr("Couches Bâti ou Construction linéaire"),
                 types=[QgsProcessing.TypeVectorAnyGeometry]
             )
         )
         self.addParameter(
             QgsProcessingParameterField(
-                'CONSTRUCTION_NATURE_FIELD',
-                'Champ Nature Construction linéaire',
-                parentLayerParameterName='BUILDING_LAYERS',
+                self.CONSTRUCTION_NATURE_FIELD,
+                self.tr('Champ Nature Construction linéaire'),
+                parentLayerParameterName=self.BUILDING_LAYERS,
                 type=QgsProcessingParameterField.String,
                 optional=True
             )
         )
         self.addParameter(
             QgsProcessingParameterFieldValues(
-                'RUINS_VALUE',
-                'Valeur Nature Construction linéaire',
-                parentLayerParameterName='BUILDING_LAYERS',
-                parentFieldParameterName='CONSTRUCTION_NATURE_FIELD',
+                self.RUINS_VALUE,
+                self.tr('Valeur Nature Construction linéaire'),
+                parentLayerParameterName=self.BUILDING_LAYERS,
+                parentFieldParameterName=self.CONSTRUCTION_NATURE_FIELD,
                 allowMultiple=False,
                 optional=True
             )
         )
         self.addParameter(
             QgsProcessingParameterDistance(
-                'DISTANCE',
-                'Distance de proximité (m)',
+                self.DISTANCE,
+                self.tr('Distance de proximité (m)'),
                 defaultValue=50,
-                parentParameterName='LOCALITY_LAYER',
+                parentParameterName=self.LOCALITY_LAYER,
                 minValue=0
             )
         )
-        self.addParameter(
-            QgsProcessingParameterFeatureSink(
-                'OUTPUT',
-                'Sortie'
-            )
-        )
+        super().initAlgorithm(config)
 
     def processAlgorithm(self, parameters, context, feedback):
-        locality_layer = self.parameterAsVectorLayer(parameters, 'LOCALITY_LAYER', context)
-        locality_nature_field = self.parameterAsString(parameters, 'LOCALITY_NATURE_FIELD', context)
+        locality_layer = self.parameterAsVectorLayer(parameters, self.LOCALITY_LAYER, context)
+        locality_nature_field = self.parameterAsString(parameters, self.LOCALITY_NATURE_FIELD, context)
         locality_nature_values = field_values_as_string_list(
-            self.parameterAsString(parameters, 'LOCALITY_NATURE_VALUE', context)
+            self.parameterAsString(parameters, self.LOCALITY_NATURE_VALUE, context)
         )
         locality_nature_value = locality_nature_values[0] if locality_nature_values else None
 
-        building_layer = self.parameterAsVectorLayer(parameters, 'BUILDING_LAYERS', context)
-        construction_nature_field = self.parameterAsString(parameters, 'CONSTRUCTION_NATURE_FIELD', context)
+        building_layer = self.parameterAsVectorLayer(parameters, self.BUILDING_LAYERS, context)
+        construction_nature_field = self.parameterAsString(parameters, self.CONSTRUCTION_NATURE_FIELD, context)
         ruins_values = field_values_as_string_list(
-            self.parameterAsString(parameters, 'RUINS_VALUE', context)
+            self.parameterAsString(parameters, self.RUINS_VALUE, context)
         )
         ruins_value = ruins_values[0] if ruins_values else None
 
-        distance = self.parameterAsDouble(parameters, 'DISTANCE', context)
+        distance = self.parameterAsDouble(parameters, self.DISTANCE, context)
 
 
         def ruins_filter(feature):
@@ -160,12 +142,9 @@ class BuildingUninhabitedLocalityProximityAlgorithm(QgsProcessingAlgorithm):
                     geom.pointOnSurface()
                 ])
 
-        if issues:
-            controlpoint_layer = ControlPointLayer("Proximité Bâti / Lieu-dit non habité")
-            controlpoint_layer.add_features(issues)
-            controlpoint_layer.save_as_temp_layer()
+        self.report_issues(issues, "Proximité Bâti / Lieu-dit non habité")
 
-        return {'OUTPUT': 'Traitement terminé'}
+        return self.processing_done_result()
 
     @staticmethod
     def _build_index(layers, feature_filter=None):

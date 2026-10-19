@@ -1,47 +1,48 @@
 from qgis.core import (
-QgsProcessingAlgorithm,
-QgsProcessingParameterMultipleLayers,
-QgsProcessing,
-QgsProcessingParameterFeatureSink,
-QgsSpatialIndex,
-QgsWkbTypes
+    QgsProcessingParameterMultipleLayers,
+    QgsProcessing,
+    QgsSpatialIndex,
+    QgsWkbTypes
 )
-from ControlPointLayer import ControlPointLayer
+
+from BaseControlAlgorithm import BaseControlAlgorithm
 
 
-class NonExactDuplicateAlgorithm(QgsProcessingAlgorithm):
+class NonExactDuplicateAlgorithm(BaseControlAlgorithm):
 
+    ALG_NAME = 'A.07'
+    ALG_DISPLAY_NAME = "Doublons"
+    ALG_GROUP = 'Controles génériques géométriques'
+    ALG_GROUP_ID = 'A'
+    ALG_HELP = (
+        "Ce contrôle détecte : "
+        "les objets linéaires, surfaciques et ponctuels en superposition géométrique exacte avec d’autres objets de couches différentes."
+        "les surfaces de même couches se chevauchant entre elles."
+    )
+
+    INPUT_LAYERS = 'INPUT_LAYERS'
 
     def initAlgorithm(self, config=None):
         self.addParameter(
             QgsProcessingParameterMultipleLayers(
-                'INPUT_LAYERS',
-                "Couches en entrée",
+                self.INPUT_LAYERS,
+                self.tr("Couches en entrée"),
                 layerType=QgsProcessing.TypeVectorAnyGeometry
             )
         )
-        self.addParameter(
-            QgsProcessingParameterFeatureSink(
-                'OUTPUT',
-                'Sortie'
-            )
-        )
+        super().initAlgorithm(config)
 
     def processAlgorithm(self, parameters, context, feedback):
-        layers = self.parameterAsLayerList(parameters, 'INPUT_LAYERS', context)
+        layers = self.parameterAsLayerList(parameters, self.INPUT_LAYERS, context)
 
         duplicates = []
         duplicates.extend(self._detect_exact_overlaps_cross_layer(layers, feedback))
 
         duplicates.extend(self._detect_partial_overlaps_same_layer(layers, feedback))
 
-        # Créer la couche de points de contrôle si des doublons sont détectés
-        if duplicates:
-            controlpoint_layer = ControlPointLayer('Doublons')
-            controlpoint_layer.add_features(duplicates)
-            controlpoint_layer.save_as_temp_layer()
+        self.report_issues(duplicates, 'Doublons')
 
-        return {self.OUTPUT: 'Traitement terminé'}
+        return self.processing_done_result()
 
     def _detect_exact_overlaps_cross_layer(self, layers, feedback):
         """Détecte les superpositions géométriques exactes entre couches différentes"""
@@ -122,30 +123,3 @@ class NonExactDuplicateAlgorithm(QgsProcessingAlgorithm):
                         ])
 
         return duplicates
-
-    def name(self):
-        """Identifiant unique de l'algorithme"""
-        return 'A.07'
-
-    def displayName(self):
-        """Nom affiché de l'algorithme"""
-        return "Doublons"
-
-    def group(self):
-        """Nom du groupe"""
-        return 'Controles génériques géométriques'
-
-    def groupId(self):
-        """Identifiant du groupe"""
-        return 'A'
-
-    def shortHelpString(self):
-        """Description de l'algorithme"""
-        return \
-            "Ce contrôle détecte : "\
-            "les objets linéaires, surfaciques et ponctuels en superposition géométrique exacte avec d’autres objets de couches différentes."\
-            "les surfaces de même couches se chevauchant entre elles."
-
-    def createInstance(self):
-        """Crée une nouvelle instance de l'algorithme"""
-        return NonExactDuplicateAlgorithm()

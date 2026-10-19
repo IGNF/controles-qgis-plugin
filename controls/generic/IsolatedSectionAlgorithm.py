@@ -1,68 +1,75 @@
 from qgis.core import (
-QgsProcessingAlgorithm,
-QgsProcessingParameterVectorLayer,
-QgsProcessing,
-QgsProcessingParameterField,
-QgsProcessingParameterFeatureSink,
-QgsWkbTypes,
-QgsSpatialIndex
+    QgsProcessingParameterVectorLayer,
+    QgsProcessing,
+    QgsProcessingParameterField,
+    QgsWkbTypes,
+    QgsSpatialIndex
 )
-from ControlPointLayer import ControlPointLayer
 from FieldValuesParameter import QgsProcessingParameterFieldValues, field_values_as_string_list
 
+from BaseControlAlgorithm import BaseControlAlgorithm
 
-class IsolatedSectionAlgorithm(QgsProcessingAlgorithm):
+
+class IsolatedSectionAlgorithm(BaseControlAlgorithm):
+
+    ALG_NAME = 'A.17'
+    ALG_DISPLAY_NAME = "Géométrie tronçons isolés"
+    ALG_GROUP = 'Controles génériques géométriques'
+    ALG_GROUP_ID = 'A'
+    ALG_HELP = (
+        "Ce contrôle détecte les tronçons isolés sur les réseaux routier, ferré et hydrographique dits En service"
+        "(valeur du champ Etat de l’objet)"
+    )
+
+    INPUT_LAYER = 'INPUT_LAYER'
+    ETAT_FIELD = 'ETAT_FIELD'
+    ETAT_VALUES = 'ETAT_VALUES'
 
     def initAlgorithm(self, config=None):
         self.addParameter(
             QgsProcessingParameterVectorLayer(
-                'INPUT_LAYER',
-                "Couche en entrée",
+                self.INPUT_LAYER,
+                self.tr("Couche en entrée"),
                 types=[QgsProcessing.TypeVectorLine]
             )
         )
         self.addParameter(
             QgsProcessingParameterField(
-                'ETAT_FIELD',
-                "Champ Etat",
-                parentLayerParameterName='INPUT_LAYER',
+                self.ETAT_FIELD,
+                self.tr("Champ Etat"),
+                parentLayerParameterName=self.INPUT_LAYER,
                 type=QgsProcessingParameterField.String
             )
         )
         self.addParameter(
             QgsProcessingParameterFieldValues(
-                'ETAT_VALUES',
-                "Valeurs Etat à contrôler",
-                parentLayerParameterName='INPUT_LAYER',
-                parentFieldParameterName='ETAT_FIELD',
+                self.ETAT_VALUES,
+                self.tr("Valeurs Etat à contrôler"),
+                parentLayerParameterName=self.INPUT_LAYER,
+                parentFieldParameterName=self.ETAT_FIELD,
                 allowMultiple=False,
                 optional=False
             )
         )
-        self.addParameter(
-            QgsProcessingParameterFeatureSink(
-                'OUTPUT',
-                'Sortie'
-            )
-        )
+        super().initAlgorithm(config)
 
     def processAlgorithm(self, parameters, context, feedback):
-        layer = self.parameterAsVectorLayer(parameters, 'INPUT_LAYER', context)
-        etat_field = self.parameterAsString(parameters, 'ETAT_FIELD', context)
+        layer = self.parameterAsVectorLayer(parameters, self.INPUT_LAYER, context)
+        etat_field = self.parameterAsString(parameters, self.ETAT_FIELD, context)
 
         if etat_field not in layer.fields().names():
-            feedback.reportError(f"Le champ Etat '{etat_field}' n'existe pas dans la couche")
+            feedback.reportError(self.tr("Le champ Etat '{}' n'existe pas dans la couche").format(etat_field))
             return {'OUTPUT': 'Erreur'}
 
         # Valeurs sélectionnées dynamiquement via le widget (chaîne séparée par des virgules)
-        etat_values = field_values_as_string_list(self.parameterAsString(parameters, 'ETAT_VALUES', context))
+        etat_values = field_values_as_string_list(self.parameterAsString(parameters, self.ETAT_VALUES, context))
 
         isolated_sections = []
 
         geom_type = QgsWkbTypes.geometryType(layer.wkbType())
         if geom_type != QgsWkbTypes.LineGeometry:
-            feedback.reportError(f"{layer.name()} n'est pas linéaire")
-            return {'OUTPUT': 'Traitement terminé'}
+            feedback.reportError(self.tr("{} n'est pas linéaire").format(layer.name()))
+            return self.processing_done_result()
 
         spatial_index = QgsSpatialIndex()
         features_dict = {}
@@ -100,35 +107,6 @@ class IsolatedSectionAlgorithm(QgsProcessingAlgorithm):
                     geom.centroid()
                 ])
 
-        if isolated_sections:
-            controlpoint_layer = ControlPointLayer('Géométrie tronçons isolés')
-            controlpoint_layer.add_features(isolated_sections)
-            controlpoint_layer.save_as_temp_layer()
+        self.report_issues(isolated_sections, 'Géométrie tronçons isolés')
 
-        return {'OUTPUT': 'Traitement terminé'}
-
-    def name(self):
-        """Identifiant unique de l'algorithme"""
-        return 'A.17'
-
-    def displayName(self):
-        """Nom affiché de l'algorithme"""
-        return "Géométrie tronçons isolés"
-
-    def group(self):
-        """Nom du groupe"""
-        return 'Controles génériques géométriques'
-
-    def groupId(self):
-        """Identifiant du groupe"""
-        return 'A'
-
-    def shortHelpString(self):
-        """Description de l'algorithme"""
-        return \
-            "Ce contrôle détecte les tronçons isolés sur les réseaux routier, ferré et hydrographique dits En service"\
-            "(valeur du champ Etat de l’objet)"
-
-    def createInstance(self):
-        """Crée une nouvelle instance de l'algorithme"""
-        return IsolatedSectionAlgorithm()
+        return self.processing_done_result()

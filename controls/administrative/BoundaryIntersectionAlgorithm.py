@@ -1,44 +1,44 @@
 from qgis.core import (
-QgsProcessingAlgorithm,
-QgsProcessingParameterVectorLayer,
-QgsProcessing,
-QgsProcessingParameterField,
-QgsProcessingParameterFeatureSink,
-QgsWkbTypes,
-QgsSpatialIndex,
-QgsGeometry,
-QgsPointXY
+    QgsProcessingParameterVectorLayer,
+    QgsProcessing,
+    QgsWkbTypes,
+    QgsSpatialIndex,
+    QgsGeometry,
+    QgsPointXY
 )
-from ControlPointLayer import ControlPointLayer
-from FieldValuesParameter import QgsProcessingParameterFieldValues, field_values_as_string_list
+
+from BaseControlAlgorithm import BaseControlAlgorithm
 
 
-class BoundaryIntersectionAlgorithm(QgsProcessingAlgorithm):
+class BoundaryIntersectionAlgorithm(BaseControlAlgorithm):
+
+    ALG_NAME = 'K.03'
+    ALG_DISPLAY_NAME = "Intersections de limites administratives"
+    ALG_GROUP = 'Controles du thème Administratif'
+    ALG_GROUP_ID = 'K'
+    ALG_HELP = "Un contrôle est généré quand deux limites administratives s'intersectent (pas de noeud commun)"
+
+    INPUT_LAYER = 'INPUT_LAYER'
 
     def initAlgorithm(self, config=None):
         self.addParameter(
             QgsProcessingParameterVectorLayer(
-                'INPUT_LAYER',
-                "Couche en entrée",
+                self.INPUT_LAYER,
+                self.tr("Couche en entrée"),
                 types=[QgsProcessing.TypeVectorLine]
             )
         )
-        self.addParameter(
-            QgsProcessingParameterFeatureSink(
-                'OUTPUT',
-                'Sortie'
-            )
-        )
+        super().initAlgorithm(config)
 
     def processAlgorithm(self, parameters, context, feedback):
-        layer = self.parameterAsVectorLayer(parameters, 'INPUT_LAYER', context)
+        layer = self.parameterAsVectorLayer(parameters, self.INPUT_LAYER, context)
 
         invalid_features = []
 
         geom_type = QgsWkbTypes.geometryType(layer.wkbType())
         if geom_type != QgsWkbTypes.LineGeometry:
-            feedback.reportError(f"{layer.name()} n'est pas linéaire")
-            return {'OUTPUT': 'Traitement terminé'}
+            feedback.reportError(self.tr("{} n'est pas linéaire").format(layer.name()))
+            return self.processing_done_result()
 
         spatial_index = QgsSpatialIndex()
         features_dict = {}
@@ -100,34 +100,6 @@ class BoundaryIntersectionAlgorithm(QgsProcessingAlgorithm):
                             QgsGeometry.fromPointXY(QgsPointXY(point_key[0], point_key[1]))
                         ])
 
-        if invalid_features:
-            controlpoint_layer = ControlPointLayer('Intersections de limites administratives')
-            controlpoint_layer.add_features(invalid_features)
-            controlpoint_layer.save_as_temp_layer()
+        self.report_issues(invalid_features, 'Intersections de limites administratives')
 
-        return {'OUTPUT': 'Traitement terminé'}
-
-    def name(self):
-        """Identifiant unique de l'algorithme"""
-        return 'K.03'
-
-    def displayName(self):
-        """Nom affiché de l'algorithme"""
-        return "Intersections de limites administratives"
-
-    def group(self):
-        """Nom du groupe"""
-        return 'Controles du thème Administratif'
-
-    def groupId(self):
-        """Identifiant du groupe"""
-        return 'K'
-
-    def shortHelpString(self):
-        """Description de l'algorithme"""
-        return \
-            "Un contrôle est généré quand deux limites administratives s'intersectent (pas de noeud commun)"
-
-    def createInstance(self):
-        """Crée une nouvelle instance de l'algorithme"""
-        return BoundaryIntersectionAlgorithm()
+        return self.processing_done_result()

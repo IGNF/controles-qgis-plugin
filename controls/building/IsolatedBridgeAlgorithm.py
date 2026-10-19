@@ -1,85 +1,98 @@
 from qgis.core import (
-QgsProcessingAlgorithm,
-QgsProcessingParameterVectorLayer,
-QgsProcessing,
-QgsProcessingParameterField,
-QgsProcessingParameterFeatureSink
+    QgsProcessingParameterVectorLayer,
+    QgsProcessing,
+    QgsProcessingParameterField
 )
-from ControlPointLayer import ControlPointLayer
 from FieldValuesParameter import QgsProcessingParameterFieldValues, field_values_as_string_list
 
-class IsolatedBridgeAlgorithm(QgsProcessingAlgorithm):
+from BaseControlAlgorithm import BaseControlAlgorithm
+
+
+class IsolatedBridgeAlgorithm(BaseControlAlgorithm):
+
+    ALG_NAME = 'F.03'
+    ALG_DISPLAY_NAME = "Pont isolé"
+    ALG_GROUP = 'Controles du thème Bati'
+    ALG_GROUP_ID = 'F'
+    ALG_HELP = (
+        "Ce contrôle se limite à la recherche des Tronçons de route de Position par rapport au sol <= 0 "
+        "partageant la géométrie d’une Construction linéaire de Nature = ‘Pont’ (ou à une distance de moins de 50 cm du pont)."
+        "Ce contrôle recherche également les Tronçons de route de Position par rapport au sol >= 0 "
+        "partageant la géométrie d’une Construction linéaire de Nature = ‘Tunnel’ (ou à une distance de moins de 50 cm du tunnel)."
+    )
+
+    ROAD_LAYER = 'ROAD_LAYER'
+    POSITION_FIELD = 'POSITION_FIELD'
+    CONSTRUCTION_LAYER = 'CONSTRUCTION_LAYER'
+    NATURE_FIELD = 'NATURE_FIELD'
+    BRIDGE_VALUE = 'BRIDGE_VALUE'
+    TUNNEL_VALUE = 'TUNNEL_VALUE'
 
     def initAlgorithm(self, config=None):
         self.addParameter(
             QgsProcessingParameterVectorLayer(
-                'ROAD_LAYER',
-                "Couche Tronçons de route",
+                self.ROAD_LAYER,
+                self.tr("Couche Tronçons de route"),
                 types=[QgsProcessing.TypeVectorLine]
             )
         )
         self.addParameter(
             QgsProcessingParameterField(
-                'POSITION_FIELD',
-                'Champ Position par rapport au sol',
-                parentLayerParameterName='ROAD_LAYER'
+                self.POSITION_FIELD,
+                self.tr('Champ Position par rapport au sol'),
+                parentLayerParameterName=self.ROAD_LAYER
             )
         )
         self.addParameter(
             QgsProcessingParameterVectorLayer(
-                'CONSTRUCTION_LAYER',
-                "Couche Construction linéaire",
+                self.CONSTRUCTION_LAYER,
+                self.tr("Couche Construction linéaire"),
                 types=[QgsProcessing.TypeVectorLine]
             )
         )
         self.addParameter(
             QgsProcessingParameterField(
-                'NATURE_FIELD',
-                'Champ Nature',
-                parentLayerParameterName='CONSTRUCTION_LAYER',
+                self.NATURE_FIELD,
+                self.tr('Champ Nature'),
+                parentLayerParameterName=self.CONSTRUCTION_LAYER,
                 type=QgsProcessingParameterField.String
             )
         )
         self.addParameter(
             QgsProcessingParameterFieldValues(
-                'BRIDGE_VALUE',
-                'Valeur Pont',
-                parentLayerParameterName='CONSTRUCTION_LAYER',
-                parentFieldParameterName='NATURE_FIELD',
+                self.BRIDGE_VALUE,
+                self.tr('Valeur Pont'),
+                parentLayerParameterName=self.CONSTRUCTION_LAYER,
+                parentFieldParameterName=self.NATURE_FIELD,
                 allowMultiple=False,
                 optional=False
             )
         )
         self.addParameter(
             QgsProcessingParameterFieldValues(
-                'TUNNEL_VALUE',
-                'Valeur Tunnel (optionnel)',
-                parentLayerParameterName='CONSTRUCTION_LAYER',
-                parentFieldParameterName='NATURE_FIELD',
+                self.TUNNEL_VALUE,
+                self.tr('Valeur Tunnel (optionnel)'),
+                parentLayerParameterName=self.CONSTRUCTION_LAYER,
+                parentFieldParameterName=self.NATURE_FIELD,
                 allowMultiple=False,
                 optional=True
             )
         )
-        self.addParameter(
-            QgsProcessingParameterFeatureSink(
-                'OUTPUT',
-                'Sortie'
-            )
-        )
+        super().initAlgorithm(config)
 
     def processAlgorithm(self, parameters, context, feedback):
-        road_layer = self.parameterAsVectorLayer(parameters, 'ROAD_LAYER', context)
-        position_field = self.parameterAsString(parameters, 'POSITION_FIELD', context)
-        construction_layer = self.parameterAsVectorLayer(parameters, 'CONSTRUCTION_LAYER', context)
-        nature_field = self.parameterAsString(parameters, 'NATURE_FIELD', context)
+        road_layer = self.parameterAsVectorLayer(parameters, self.ROAD_LAYER, context)
+        position_field = self.parameterAsString(parameters, self.POSITION_FIELD, context)
+        construction_layer = self.parameterAsVectorLayer(parameters, self.CONSTRUCTION_LAYER, context)
+        nature_field = self.parameterAsString(parameters, self.NATURE_FIELD, context)
 
         # Valeur Pont sélectionnée dynamiquement via le widget (champ 'field_values')
-        raw_bridge_value = self.parameterAsString(parameters, 'BRIDGE_VALUE', context)
+        raw_bridge_value = self.parameterAsString(parameters, self.BRIDGE_VALUE, context)
         bridge_values = field_values_as_string_list(raw_bridge_value)
         bridge_value = bridge_values[0] if bridge_values else None
 
         # Valeur Tunnel sélectionnée dynamiquement via le widget (champ 'field_values')
-        raw_tunnel_value = self.parameterAsString(parameters, 'TUNNEL_VALUE', context)
+        raw_tunnel_value = self.parameterAsString(parameters, self.TUNNEL_VALUE, context)
         tunnel_values = field_values_as_string_list(raw_tunnel_value)
         tunnel_value = tunnel_values[0] if tunnel_values else None
 
@@ -145,37 +158,6 @@ class IsolatedBridgeAlgorithm(QgsProcessingAlgorithm):
                         ])
                         break
 
-        if issues:
-            controlpoint_layer = ControlPointLayer('Pont isolé')
-            controlpoint_layer.add_features(issues)
-            controlpoint_layer.save_as_temp_layer()
+        self.report_issues(issues, 'Pont isolé')
 
-        return {'OUTPUT': 'Traitement terminé'}
-
-    def name(self):
-        """Identifiant unique de l'algorithme"""
-        return 'F.03'
-
-    def displayName(self):
-        """Nom affiché de l'algorithme"""
-        return "Pont isolé"
-
-    def group(self):
-        """Nom du groupe"""
-        return 'Controles du thème Bati'
-
-    def groupId(self):
-        """Identifiant du groupe"""
-        return 'F'
-
-    def shortHelpString(self):
-        """Description de l'algorithme"""
-        return \
-            "Ce contrôle se limite à la recherche des Tronçons de route de Position par rapport au sol <= 0 "\
-            "partageant la géométrie d’une Construction linéaire de Nature = ‘Pont’ (ou à une distance de moins de 50 cm du pont)."\
-            "Ce contrôle recherche également les Tronçons de route de Position par rapport au sol >= 0 "\
-            "partageant la géométrie d’une Construction linéaire de Nature = ‘Tunnel’ (ou à une distance de moins de 50 cm du tunnel)."
-
-    def createInstance(self):
-        """Crée une nouvelle instance de l'algorithme"""
-        return IsolatedBridgeAlgorithm()
+        return self.processing_done_result()

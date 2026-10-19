@@ -1,42 +1,45 @@
 from qgis.core import (
-QgsProcessingAlgorithm,
-QgsProcessingParameterVectorLayer,
-QgsProcessing,
-QgsProcessingParameterField,
-QgsProcessingParameterFeatureSink,
-QgsWkbTypes
+    QgsProcessingParameterVectorLayer,
+    QgsProcessing,
+    QgsProcessingParameterField,
+    QgsWkbTypes
 )
-from ControlPointLayer import ControlPointLayer
+
+from BaseControlAlgorithm import BaseControlAlgorithm
 
 
-class ExactDuplicateAlgorithm(QgsProcessingAlgorithm):
+class ExactDuplicateAlgorithm(BaseControlAlgorithm):
+
+    ALG_NAME = 'A.05'
+    ALG_DISPLAY_NAME = "Doublons parfaits"
+    ALG_GROUP = 'controles génériques géométriques'
+    ALG_GROUP_ID = 'A'
+    ALG_HELP = "Ce contrôle détecte des objets de même couche ayant exactement les mêmes attributs et la même géométrie"
+
+    INPUT_LAYER = 'INPUT_LAYER'
+    EXCLUDED_FIELDS = 'EXCLUDED_FIELDS'
 
     def initAlgorithm(self, config=None):
         self.addParameter(
             QgsProcessingParameterVectorLayer(
-                'INPUT_LAYER',
-                "Couche en entrée",
+                self.INPUT_LAYER,
+                self.tr("Couche en entrée"),
                 types=[QgsProcessing.TypeVectorAnyGeometry]
             )
         )
         excluded_param = QgsProcessingParameterField(
-            'EXCLUDED_FIELDS',
-            'Champs à exclure',
-            parentLayerParameterName='INPUT_LAYER',
+            self.EXCLUDED_FIELDS,
+            self.tr('Champs à exclure'),
+            parentLayerParameterName=self.INPUT_LAYER,
             allowMultiple=True,
             optional=True
         )
         self.addParameter(excluded_param)
-        self.addParameter(
-            QgsProcessingParameterFeatureSink(
-                'OUTPUT',
-                'Sortie'
-            )
-        )
+        super().initAlgorithm(config)
 
     def processAlgorithm(self, parameters, context, feedback):
-        layer = self.parameterAsVectorLayer(parameters, 'INPUT_LAYER', context)
-        excluded_fields = self.parameterAsFields(parameters, 'EXCLUDED_FIELDS', context) or []
+        layer = self.parameterAsVectorLayer(parameters, self.INPUT_LAYER, context)
+        excluded_fields = self.parameterAsFields(parameters, self.EXCLUDED_FIELDS, context) or []
 
         doublons = []
         geom_dict = {}
@@ -73,33 +76,6 @@ class ExactDuplicateAlgorithm(QgsProcessingAlgorithm):
             else:
                 geom_dict[geom] = f
 
-        if doublons != []:
-            controlpoint_layer = ControlPointLayer('Doublons parfaits')
-            controlpoint_layer.add_features(doublons)
-            controlpoint_layer.save_as_temp_layer()
+        self.report_issues(doublons, 'Doublons parfaits')
 
-        return {'OUTPUT': 'Traitement terminé'}
-
-    def name(self):
-        """Identifiant unique de l'algorithme"""
-        return 'A.05'
-
-    def displayName(self):
-        """Nom affiché de l'algorithme"""
-        return "Doublons parfaits"
-
-    def group(self):
-        """Nom du groupe"""
-        return 'controles génériques géométriques'
-
-    def groupId(self):
-        """Identifiant du groupe"""
-        return 'A'
-
-    def shortHelpString(self):
-        """Description de l'algorithme"""
-        return "Ce contrôle détecte des objets de même couche ayant exactement les mêmes attributs et la même géométrie"
-
-    def createInstance(self):
-        """Crée une nouvelle instance de l'algorithme"""
-        return ExactDuplicateAlgorithm()
+        return self.processing_done_result()
