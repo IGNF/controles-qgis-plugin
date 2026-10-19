@@ -2,14 +2,13 @@ from qgis.core import (
 QgsProcessingAlgorithm,
 QgsProcessingParameterVectorLayer,
 QgsProcessing,
-QgsProcessingParameterFile,
+QgsProcessingParameterField,
 QgsProcessingParameterFeatureSink,
 QgsWkbTypes,
-QgsSpatialIndex,
-QgsFeatureRequest
+QgsSpatialIndex
 )
 from ControlPointLayer import ControlPointLayer
-import json
+from FieldValuesParameter import QgsProcessingParameterFieldValues, field_values_as_string_list
 
 
 class IsolatedSectionAlgorithm(QgsProcessingAlgorithm):
@@ -23,10 +22,21 @@ class IsolatedSectionAlgorithm(QgsProcessingAlgorithm):
             )
         )
         self.addParameter(
-            QgsProcessingParameterFile(
-                'PARAM_JSON',
-                'Paramètres JSON',
-                extension='json'
+            QgsProcessingParameterField(
+                'ETAT_FIELD',
+                "Champ Etat",
+                parentLayerParameterName='INPUT_LAYER',
+                type=QgsProcessingParameterField.String
+            )
+        )
+        self.addParameter(
+            QgsProcessingParameterFieldValues(
+                'ETAT_VALUES',
+                "Valeurs Etat à contrôler",
+                parentLayerParameterName='INPUT_LAYER',
+                parentFieldParameterName='ETAT_FIELD',
+                allowMultiple=False,
+                optional=False
             )
         )
         self.addParameter(
@@ -38,32 +48,29 @@ class IsolatedSectionAlgorithm(QgsProcessingAlgorithm):
 
     def processAlgorithm(self, parameters, context, feedback):
         layer = self.parameterAsVectorLayer(parameters, 'INPUT_LAYER', context)
-        json_path = self.parameterAsFile(parameters, 'PARAM_JSON', context)
+        etat_field = self.parameterAsString(parameters, 'ETAT_FIELD', context)
 
-        with open(json_path, "r", encoding="utf-8") as f:
-            param_json = json.load(f)
+        if etat_field not in layer.fields().names():
+            feedback.reportError(f"Le champ Etat '{etat_field}' n'existe pas dans la couche")
+            return {'OUTPUT': 'Erreur'}
+
+        # Valeurs sélectionnées dynamiquement via le widget (chaîne séparée par des virgules)
+        etat_values = field_values_as_string_list(self.parameterAsString(parameters, 'ETAT_VALUES', context))
 
         isolated_sections = []
-
-        if layer.name() not in param_json.keys():
-            feedback.reportError('{} not in param.json'.format(layer.name()))
-            return {'OUTPUT': 'Traitement terminé'}
 
         geom_type = QgsWkbTypes.geometryType(layer.wkbType())
         if geom_type != QgsWkbTypes.LineGeometry:
             feedback.reportError(f"{layer.name()} n'est pas linéaire")
             return {'OUTPUT': 'Traitement terminé'}
 
-        filter_condition = param_json[layer.name()]
-
         spatial_index = QgsSpatialIndex()
         features_dict = {}
 
-        request = QgsFeatureRequest()
-        if filter_condition:
-            request.setFilterExpression(filter_condition)
-
-        for f in layer.getFeatures(request):
+        for f in layer.getFeatures():
+            etat_value = str(f[etat_field]) if f[etat_field] is not None else ''
+            if etat_value not in etat_values:
+                continue
             if not f.geometry() or not f.geometry().isGeosValid():
                 continue
             features_dict[f.id()] = f
@@ -119,7 +126,8 @@ class IsolatedSectionAlgorithm(QgsProcessingAlgorithm):
     def shortHelpString(self):
         """Description de l'algorithme"""
         return \
-            "Ce contrôle détecte les tronçons isolés sur les réseaux routier, ferré et hydrographique."
+            "Ce contrôle détecte les tronçons isolés sur les réseaux routier, ferré et hydrographique dits En service"\
+            "(valeur du champ Etat de l’objet)"
 
     def createInstance(self):
         """Crée une nouvelle instance de l'algorithme"""
