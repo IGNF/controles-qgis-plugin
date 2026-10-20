@@ -1,4 +1,4 @@
-from qgis.core import QgsVectorLayer, QgsField, QgsProject, edit, QgsFeature, QgsVectorFileWriter
+from qgis.core import QgsVectorLayer, QgsField, QgsProject, QgsFeature
 from qgis.PyQt.QtCore import QVariant
 from qgis.PyQt.QtWidgets import QMessageBox
 import os

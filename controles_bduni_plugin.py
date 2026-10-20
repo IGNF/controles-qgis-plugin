@@ -34,7 +34,6 @@ import gc
 
 # Import the code for the dialog
 from .controles_bduni_plugin_dialog import ControlesBDUniPluginDialog
-from .processing_provider import ControlesBDUniProvider
 import os.path
 import json
 from json.decoder import JSONDecodeError
@@ -62,6 +61,10 @@ class ControlesBDUniPlugin:
 
         # initialize plugin directory
         self.plugin_dir = os.path.dirname(__file__)
+
+        # Configuration unique du logging (évite les reconfigurations répétées)
+        logging.basicConfig(level=logging.DEBUG,
+                             filename=os.path.join(self.plugin_dir, 'controls.log'))
 
         # initialize locale
         locale = QSettings().value('locale/userLocale')[0:2]
@@ -105,9 +108,22 @@ class ControlesBDUniPlugin:
             return True
         try:
             return sip.isdeleted(self.provider)
-        except:
+        except Exception:
             return True
 
+    def _param_json_path(self):
+        """Chemin absolu vers le fichier de paramétrage JSON du plugin."""
+        return os.path.join(self.plugin_dir, 'param.json')
+
+    def _log_error(self, message):
+        """Journalise une erreur dans controls.log (configuration unique)."""
+        logging.error(message)
+
+    def _push_message(self, title, message, level=Qgis.Warning, duration=10, clear=False):
+        """Affiche un message dans la barre de messages QGIS (factorise les appels répétés)."""
+        if clear:
+            self.iface.messageBar().clearWidgets()
+        self.iface.messageBar().pushMessage(title, message, level=level, duration=duration)
 
     def add_action(
         self,
@@ -204,9 +220,7 @@ class ControlesBDUniPlugin:
             from FieldValuesWidget import register_field_values_widget
             register_field_values_widget()
         except Exception as e:
-            logging.basicConfig(level=logging.DEBUG,
-                                filename=os.path.join(self.plugin_dir, 'controls.log'))
-            logging.error(f"Erreur lors de l'enregistrement du widget field_values: {e}")
+            self._log_error(f"Erreur lors de l'enregistrement du widget field_values: {e}")
 
     def initProcessing(self):
         """Initialise le provider de processing via le script load_controls_processing"""
@@ -266,19 +280,17 @@ class ControlesBDUniPlugin:
             if layer_item.checkState() == QtCore.Qt.Checked:
                 layers.append(QgsProject.instance().mapLayersByName(layer_item.text())[0])
         if not controls:
-            self.iface.messageBar().clearWidgets()
-            self.iface.messageBar().pushMessage("Erreur", "Aucun contrôle séléctionné", level=Qgis.Warning, duration=10)
+            self._push_message("Erreur", "Aucun contrôle séléctionné", clear=True)
             return
         if not layers:
-            self.iface.messageBar().clearWidgets()
-            self.iface.messageBar().pushMessage("Erreur", "Aucune couche séléctionnée", level=Qgis.Warning, duration=10)
+            self._push_message("Erreur", "Aucune couche séléctionnée", clear=True)
             return
 
         # Vérifier que le provider est valide
         if self.provider is None or self._is_provider_deleted():
-            self.iface.messageBar().pushMessage("Erreur",
-                                                "Le provider de contrôles n'est pas disponible. Réinitialisez le plugin.",
-                                                level=Qgis.Critical, duration=10)
+            self._push_message("Erreur",
+                                "Le provider de contrôles n'est pas disponible. Réinitialisez le plugin.",
+                                level=Qgis.Critical)
             return
 
         for control_name in controls:
@@ -290,15 +302,13 @@ class ControlesBDUniPlugin:
                     break
 
             if algo is None:
-                self.iface.messageBar().pushMessage("Erreur",
-                                                    f"Contrôle {control_name} introuvable",
-                                                    level=Qgis.Warning, duration=10)
+                self._push_message("Erreur", f"Contrôle {control_name} introuvable")
                 continue
 
             try:
                 context = QgsProcessingContext()
                 feedback = QgsProcessingFeedback()
-                json_path = os.path.join(self.plugin_dir, 'param.json')
+                json_path = self._param_json_path()
 
                 # Introspection des paramètres de l'algorithme
                 param_defs = algo.parameterDefinitions()
@@ -324,41 +334,45 @@ class ControlesBDUniPlugin:
                         params = {vector_params[0].name(): layer}
                         if has_json:
                             params['PARAM_JSON'] = json_path
-                        if needs_interactive_dialog:
-                            self._run_algorithm_interactively(algo, params, control_name)
-                        else:
-                            result = algo.processAlgorithm(params, context, feedback)
+                        result = self._execute_algorithm(
+                            algo, params, control_name, needs_interactive_dialog, context, feedback)
 
                 elif len(vector_params) > 1:
                     # Cas multi-couches : assigner les couches sélectionnées dans l'ordre des paramètres
                     if len(layers) < len(vector_params):
                         param_names = ', '.join(p.name() for p in vector_params)
-                        self.iface.messageBar().pushMessage(
+                        self._push_message(
                             "Avertissement",
                             f"{control_name} nécessite {len(vector_params)} couches ({param_names}),"
-                            f" seulement {len(layers)} sélectionnée(s)",
-                            level=Qgis.Warning, duration=10)
+                            f" seulement {len(layers)} sélectionnée(s)")
                         continue
                     params = {p.name(): layers[i] for i, p in enumerate(vector_params)}
                     if has_json:
                         params['PARAM_JSON'] = json_path
-                    if needs_interactive_dialog:
-                        self._run_algorithm_interactively(algo, params, control_name)
-                    else:
-                        result = algo.processAlgorithm(params, context, feedback)
+                    result = self._execute_algorithm(
+                        algo, params, control_name, needs_interactive_dialog, context, feedback)
 
                 if result is not None:
-                    self.iface.messageBar().pushMessage("Info",
+                    self._push_message("Info",
                         f"Contrôle {control_name} : {result.get('OUTPUT', 'terminé')}",
-                        level=Qgis.Info, duration=10)
+                        level=Qgis.Info)
 
             except Exception as e:
-                logging.basicConfig(level=logging.DEBUG,
-                                    filename=os.path.join(self.plugin_dir, 'controls.log'))
-                logging.error(f"Erreur pour {control_name}: {e}")
-                self.iface.messageBar().pushMessage("Erreur",
-                                                    f"Erreur lors de l'exécution de {control_name}: {str(e)}",
-                                                    level=Qgis.Warning, duration=10)
+                self._log_error(f"Erreur pour {control_name}: {e}")
+                self._push_message("Erreur", f"Erreur lors de l'exécution de {control_name}: {str(e)}")
+
+    def _execute_algorithm(self, algo, params, control_name, needs_interactive_dialog, context, feedback):
+        """
+        Exécute un algorithme soit directement (processAlgorithm), soit via le
+        dialogue interactif de Processing si des paramètres additionnels
+        (champ à vérifier, valeurs, seuils...) nécessitent une saisie utilisateur.
+        Retourne le résultat de `processAlgorithm`, ou None si exécuté via le
+        dialogue interactif (asynchrone, pas de résultat direct disponible).
+        """
+        if needs_interactive_dialog:
+            self._run_algorithm_interactively(algo, params, control_name)
+            return None
+        return algo.processAlgorithm(params, context, feedback)
 
     def _run_algorithm_interactively(self, algo, params, control_name):
         """Ouvre le dialogue natif de Processing (préfilli avec les couches déjà
@@ -370,12 +384,8 @@ class ControlesBDUniPlugin:
             import processing
             processing.execAlgorithmDialog(algo.id(), params)
         except Exception as e:
-            logging.basicConfig(level=logging.DEBUG,
-                                filename=os.path.join(self.plugin_dir, 'controls.log'))
-            logging.error(f"Erreur lors de l'ouverture du dialogue interactif pour {control_name}: {e}")
-            self.iface.messageBar().pushMessage("Erreur",
-                                                f"Impossible d'ouvrir le dialogue pour {control_name}: {str(e)}",
-                                                level=Qgis.Warning, duration=10)
+            self._log_error(f"Erreur lors de l'ouverture du dialogue interactif pour {control_name}: {e}")
+            self._push_message("Erreur", f"Impossible d'ouvrir le dialogue pour {control_name}: {str(e)}")
 
 
     def run(self):
@@ -387,16 +397,16 @@ class ControlesBDUniPlugin:
             self.first_start = False
 
         try:
-            with open(self.plugin_dir+'\param.json', 'r') as file:
+            with open(self._param_json_path(), 'r') as file:
                 self.param = json.load(file)
         except JSONDecodeError:
-            QMessageBox.critical(None,'Erreur','Json de paramétrage invalide')
+            QMessageBox.critical(None, 'Erreur', 'Json de paramétrage invalide')
             return
         except FileNotFoundError:
             QMessageBox.critical(None, 'Erreur', 'Json de paramétrage introuvable')
             return
 
-        self.dlg = ControlesBDUniPluginDialog()
+        self.dlg = ControlesBDUniPluginDialog(provider=self.provider)
         # show the dialog
         self.dlg.show()
         # Run the dialog event loop
@@ -406,7 +416,6 @@ class ControlesBDUniPlugin:
             try:
                 self.run_controls()
             except Exception as e:
-                logging.basicConfig(level=logging.DEBUG, filename=self.plugin_dir + '/controls.log')
-                logging.debug(e)
-                self.iface.messageBar().pushMessage("Warning", str(e), level=Qgis.Warning)
+                self._log_error(str(e))
+                self._push_message("Warning", str(e), level=Qgis.Warning)
                 print(e)

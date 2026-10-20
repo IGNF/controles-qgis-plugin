@@ -26,11 +26,9 @@ import os
 
 from qgis.PyQt import uic
 from qgis.PyQt.QtCore import Qt
-from qgis.core import QgsProject, Qgis
+from qgis.core import QgsProject
 
-from qgis.PyQt.QtWidgets import QAction, QListWidget, QListWidgetItem, QDialog
-
-import ast
+from qgis.PyQt.QtWidgets import QListWidgetItem, QDialog
 
 # This loads your .ui file so that PyQt can populate your plugin with the elements from Qt Designer
 FORM_CLASS, _ = uic.loadUiType(os.path.join(
@@ -38,8 +36,14 @@ FORM_CLASS, _ = uic.loadUiType(os.path.join(
 
 
 class ControlesBDUniPluginDialog(QDialog, FORM_CLASS):
-    def __init__(self, parent=None):
-        """Constructor."""
+    def __init__(self, parent=None, provider=None):
+        """Constructor.
+
+        :param provider: instance du ControlesBDUniProvider déjà chargée par
+            le plugin (voir ControlesBDUniPlugin.initProcessing). Utilisée
+            pour lister les contrôles disponibles sans ré-analyser les
+            fichiers sources.
+        """
         super(ControlesBDUniPluginDialog, self).__init__(parent)
         # Set up the user interface from Designer through FORM_CLASS.
         # After self.setupUi() you can access any designer object by doing
@@ -47,6 +51,7 @@ class ControlesBDUniPluginDialog(QDialog, FORM_CLASS):
         # http://qt-project.org/doc/qt-4.8/designer-using-a-ui-file.html
         # #widgets-and-dialogs-with-auto-connect
         self.setupUi(self)
+        self.provider = provider
         self.load_controls()
         self.load_layers()
         self.init_signals()
@@ -58,58 +63,36 @@ class ControlesBDUniPluginDialog(QDialog, FORM_CLASS):
         self.allLayersButton.clicked.connect(self.check_all_layers)
         self.noLayerButton.clicked.connect(self.uncheck_all_layers)
 
+    @staticmethod
+    def _set_all_check_state(list_widget, state):
+        """Applique le même état de coche à toutes les entrées d'une liste."""
+        for i in range(list_widget.count()):
+            list_widget.item(i).setCheckState(state)
 
     def check_all_controls(self):
-        for i in range(self.controlListWidget.count()):
-            item = self.controlListWidget.item(i)
-            item.setCheckState(Qt.Checked)
+        self._set_all_check_state(self.controlListWidget, Qt.Checked)
 
     def uncheck_all_controls(self):
-        for i in range(self.controlListWidget.count()):
-            item = self.controlListWidget.item(i)
-            item.setCheckState(Qt.Unchecked)
+        self._set_all_check_state(self.controlListWidget, Qt.Unchecked)
 
     def check_all_layers(self):
-        for i in range(self.layerListWidget.count()):
-            item = self.layerListWidget.item(i)
-            item.setCheckState(Qt.Checked)
+        self._set_all_check_state(self.layerListWidget, Qt.Checked)
 
     def uncheck_all_layers(self):
-        for i in range(self.layerListWidget.count()):
-            item = self.layerListWidget.item(i)
-            item.setCheckState(Qt.Unchecked)
-
-
-    @staticmethod
-    def _get_method_return_str(class_node, method_name):
-        """Extrait la valeur de retour (string) d'une méthode simple via AST."""
-        for node in class_node.body:
-            if isinstance(node, ast.FunctionDef) and node.name == method_name:
-                for stmt in node.body:
-                    if isinstance(stmt, ast.Return) and stmt.value is not None:
-                        if isinstance(stmt.value, ast.Constant) and isinstance(stmt.value.value, str):
-                            return stmt.value.value.strip()
-        return None
+        self._set_all_check_state(self.layerListWidget, Qt.Unchecked)
 
     def load_controls(self):
+        """
+        Liste les contrôles disponibles à partir des algorithmes déjà chargés
+        par le provider de processing (découverte dynamique par importlib/
+        inspect, voir processing_provider.py). Évite de dupliquer la logique
+        de découverte en ré-analysant les fichiers sources.
+        """
         algorithms = []
-        directory_path = os.path.dirname(__file__) + '/controls'
-        for subdir in os.listdir(directory_path):
-            subdir_path = os.path.join(directory_path, subdir)
-            if os.path.isdir(subdir_path):
-                for f in os.listdir(subdir_path):
-                    if f.endswith('.py') and f != '__init__.py':
-                        file_path = os.path.join(subdir_path, f)
-                        with open(file_path, "r") as file:
-                            tree = ast.parse(file.read())
-                        for node in tree.body:
-                            if isinstance(node, ast.ClassDef):
-                                for base in node.bases:
-                                    if isinstance(base, ast.Name) and base.id == 'QgsProcessingAlgorithm':
-                                        algo_id = self._get_method_return_str(node, 'name') or node.name
-                                        display_name = self._get_method_return_str(node, 'displayName') or node.name
-                                        algorithms.append((node.name, algo_id, display_name))
-                                        break
+        if self.provider is not None:
+            for algo in self.provider.algorithms():
+                algorithms.append((type(algo).__name__, algo.name(), algo.displayName()))
+
         for class_name, algo_id, display_name in sorted(algorithms, key=lambda x: x[1]):
             label = f"{algo_id} - {display_name}"
             item = QListWidgetItem(label)
