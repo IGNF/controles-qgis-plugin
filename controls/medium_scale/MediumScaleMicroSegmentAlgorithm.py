@@ -42,6 +42,9 @@ class MediumScaleMicroSegmentAlgorithm(BaseControlAlgorithm):
     def processAlgorithm(self, parameters, context, feedback):
         layer = self.parameterAsVectorLayer(parameters, self.INPUT_LAYER, context)
         taille_mini = self.parameterAsDouble(parameters, self.THRESHOLD, context)
+        id_field = self.get_id_field(parameters, context)
+        if not self.validate_id_field(layer, id_field, feedback):
+            return {'OUTPUT': 'Erreur'}
 
         micro_segment = []
         geom_type = QgsWkbTypes.geometryType(layer.wkbType())
@@ -70,7 +73,7 @@ class MediumScaleMicroSegmentAlgorithm(BaseControlAlgorithm):
                 if segment.length() < int(taille_mini):
                     micro_segment.append(['ME Géométrie - Micro-segment',
                                           layer.name(),
-                                          f.id(),
+                                          self.get_feature_identifier(f, id_field),
                                           'geometry',
                                           "L'objet contient un micro-segment",
                                           f.geometry().pointOnSurface()])

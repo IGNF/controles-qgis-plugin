@@ -39,6 +39,9 @@ class ZMaxAltitudeAlgorithm(BaseControlAlgorithm):
     def processAlgorithm(self, parameters, context, feedback):
         layer = self.parameterAsVectorLayer(parameters, self.INPUT_LAYER, context)
         max_altitude = self.parameterAsDouble(parameters, self.MAX_ALTITUDE, context)
+        id_field = self.get_id_field(parameters, context)
+        if not self.validate_id_field(layer, id_field, feedback):
+            return {'OUTPUT': 'Erreur'}
 
         invalid_objects = []
 
@@ -66,7 +69,7 @@ class ZMaxAltitudeAlgorithm(BaseControlAlgorithm):
                 invalid_objects.append([
                     'Altitudes hors norme',
                     layer.name(),
-                    feature.id(),
+                    self.get_feature_identifier(feature, id_field),
                     'geometrie',
                     '{} avec Z > {}m'.format(layer.name(), max_altitude),
                     feature.geometry().pointOnSurface()

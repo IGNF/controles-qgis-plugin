@@ -40,6 +40,9 @@ class RouteContinuityAlgorithm(BaseControlAlgorithm):
     def processAlgorithm(self, parameters, context, feedback):
         layer = self.parameterAsVectorLayer(parameters, self.INPUT_LAYER, context)
         attribute_field = self.parameterAsString(parameters, self.ATTRIBUTE_FIELD, context)
+        id_field = self.get_id_field(parameters, context)
+        if not self.validate_id_field(layer, id_field, feedback):
+            return {'OUTPUT': 'Erreur'}
 
         invalid_objects = []
 
@@ -100,7 +103,7 @@ class RouteContinuityAlgorithm(BaseControlAlgorithm):
                     invalid_objects.append([
                         'Continuité de l’Itinéraire FFR',
                         layer.name(),
-                        feature.id(),
+                        self.get_feature_identifier(feature, id_field),
                         attribute_field,
                         'Discontinuité de l’Itinéraire FFR',
                         endpoint_geom

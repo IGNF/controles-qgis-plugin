@@ -123,6 +123,9 @@ class NumberedRoadSectionAlgorithm(BaseControlAlgorithm):
         complex_layer = self.parameterAsVectorLayer(parameters, self.COMPLEX_LAYER, context)
         complex_key_field = self.parameterAsString(parameters, self.COMPLEX_KEY_FIELD, context)
         type_route_field = self.parameterAsString(parameters, self.COMPLEX_TYPE_FIELD, context)
+        id_field = self.get_id_field(parameters, context)
+        if not self.validate_id_field(segment_layer, id_field, feedback):
+            return {'OUTPUT': 'Erreur'}
 
         if nature_field not in segment_layer.fields().names():
             feedback.reportError(self.tr("Le champ Nature '{}' n'existe pas dans la couche des tronçons").format(nature_field))
@@ -174,7 +177,7 @@ class NumberedRoadSectionAlgorithm(BaseControlAlgorithm):
                 invalid_features.append([
                     "Tronçon de route / Route numérotée",
                     segment_layer.name(),
-                    segment.id(),
+                    self.get_feature_identifier(segment, id_field),
                     nature_field,
                     "La nature du tronçon n'est pas compatible avec le Type de route numérotée",
                     segment.geometry().pointOnSurface()

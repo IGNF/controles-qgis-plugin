@@ -52,6 +52,9 @@ class AttributesInconsistencyAlgorithm(BaseControlAlgorithm):
     def processAlgorithm(self, parameters, context, feedback):
         layer = self.parameterAsVectorLayer(parameters, self.INPUT_LAYER, context)
         json_path = self.parameterAsFile(parameters, self.PARAM_JSON, context)
+        id_field = self.get_id_field(parameters, context)
+        if not self.validate_id_field(layer, id_field, feedback):
+            return {'OUTPUT': 'Erreur'}
 
         # param_json : {'couche': {condition: consequence}, ...}
         param_json = self.load_json_parameters(json_path)
@@ -69,7 +72,7 @@ class AttributesInconsistencyAlgorithm(BaseControlAlgorithm):
                     incoherence_attributes_feature.append(
                         ['Incohérence entre attributs',
                         layer.name(),
-                        feature.id(),
+                        self.get_feature_identifier(feature, id_field),
                         consequence[0],
                         'Les champs {} et {} ne sont pas cohérents'.format(condition[0], consequence[0]),
                         feature.geometry().pointOnSurface()])

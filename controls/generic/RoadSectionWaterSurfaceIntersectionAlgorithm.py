@@ -23,6 +23,8 @@ class RoadSectionWaterSurfaceIntersectionAlgorithm(BaseControlAlgorithm):
     ROAD_LAYER = 'ROAD_LAYER'
     WATER_LAYER = 'WATER_LAYER'
 
+    INPUT_LAYER = ROAD_LAYER
+
     def initAlgorithm(self, config=None):
         self.addParameter(
             QgsProcessingParameterVectorLayer(
@@ -51,6 +53,9 @@ class RoadSectionWaterSurfaceIntersectionAlgorithm(BaseControlAlgorithm):
         road_layer = self.parameterAsVectorLayer(parameters, self.ROAD_LAYER, context)
         water_layer = self.parameterAsVectorLayer(parameters, self.WATER_LAYER, context)
         json_path = self.parameterAsFile(parameters, self.PARAM_JSON, context)
+        id_field = self.get_id_field(parameters, context)
+        if not self.validate_id_field([road_layer, water_layer], id_field, feedback):
+            return {'OUTPUT': 'Erreur'}
 
         # param_json : {'couche': ['attribut1', 'attribut2', ...], ...}
         param_json = self.load_json_parameters(json_path)
@@ -88,7 +93,7 @@ class RoadSectionWaterSurfaceIntersectionAlgorithm(BaseControlAlgorithm):
                 if road_feature.geometry().within(water_feature.geometry()):
                     intersect_features.append(['Intersection de tronçons de route avec des surfaces d’eau',
                                                f"{road_layer.name()} / {water_layer.name()}",
-                                               f"{road_feature.id()} / {water_feature.id()}",
+                                               f"{self.get_feature_identifier(road_feature, id_field)} / {self.get_feature_identifier(water_feature, id_field)}",
                                                'geometry',
                                                 'Ce tronçon de route est inclus dans une surface hydrographique',
                                                 road_feature.geometry().pointOnSurface()])
@@ -96,7 +101,7 @@ class RoadSectionWaterSurfaceIntersectionAlgorithm(BaseControlAlgorithm):
                     intersection_geom = road_feature.geometry().intersection(water_feature.geometry())
                     intersect_features.append(['Intersection de tronçons de route avec des surfaces d’eau',
                                                f"{road_layer.name()} / {water_layer.name()}",
-                                               f"{road_feature.id()} / {water_feature.id()}",
+                                               f"{self.get_feature_identifier(road_feature, id_field)} / {self.get_feature_identifier(water_feature, id_field)}",
                                                'geometry',
                                                 'Ce tronçon de route traverse une surface hydrographique',
                                                 intersection_geom.centroid()])

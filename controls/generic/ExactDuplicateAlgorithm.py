@@ -40,6 +40,9 @@ class ExactDuplicateAlgorithm(BaseControlAlgorithm):
     def processAlgorithm(self, parameters, context, feedback):
         layer = self.parameterAsVectorLayer(parameters, self.INPUT_LAYER, context)
         excluded_fields = self.parameterAsFields(parameters, self.EXCLUDED_FIELDS, context) or []
+        id_field = self.get_id_field(parameters, context)
+        if not self.validate_id_field(layer, id_field, feedback):
+            return {'OUTPUT': 'Erreur'}
 
         doublons = []
         geom_dict = {}
@@ -69,7 +72,7 @@ class ExactDuplicateAlgorithm(BaseControlAlgorithm):
                         doublon_type = "Doublons parfaits"
                     doublons.append(['Doublons parfaits',
                                      layer.name(),
-                                     geom_dict[geom].id(),
+                                     self.get_feature_identifier(geom_dict[geom], id_field),
                                      'geometry',
                                      doublon_type,
                                      f.geometry().pointOnSurface()])

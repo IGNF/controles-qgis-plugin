@@ -91,6 +91,9 @@ class BasinIntermittentConsistencyAlgorithm(BaseControlAlgorithm):
 
         raw_persistance_values = self.parameterAsString(parameters, self.PERSISTANCE_VALUES, context)
         selected_persistance_values = field_values_as_string_list(raw_persistance_values)
+        id_field = self.get_id_field(parameters, context)
+        if not self.validate_id_field(layer, id_field, feedback):
+            return {'OUTPUT': 'Erreur'}
 
         invalid_features = []
         for feature in layer.getFeatures():
@@ -101,7 +104,7 @@ class BasinIntermittentConsistencyAlgorithm(BaseControlAlgorithm):
                 invalid_features.append([
                     'Cohérence Bassin / Intermittent',
                     layer.name(),
-                    feature.id(),
+                    self.get_feature_identifier(feature, id_field),
                     nature_field,
                     "Le champ Persistance des surfaces hydrographiques dont la Nature est {} doit être à {}".format(
                         selected_nature_values, selected_persistance_values),

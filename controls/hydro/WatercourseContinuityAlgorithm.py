@@ -25,6 +25,8 @@ class WatercourseContinuityAlgorithm(BaseControlAlgorithm):
     SEGMENT_LAYER = 'SEGMENT_LAYER'
     SEGMENT_KEY_FIELD = 'SEGMENT_KEY_FIELD'
 
+    INPUT_LAYER = COMPLEX_LAYER
+
     def initAlgorithm(self, config=None):
         self.addParameter(
             QgsProcessingParameterVectorLayer(
@@ -44,7 +46,7 @@ class WatercourseContinuityAlgorithm(BaseControlAlgorithm):
         self.addParameter(
             QgsProcessingParameterVectorLayer(
                 self.SEGMENT_LAYER,
-                self.tr("Couche des tronçons hydrographiques (lignes)"),
+                self.tr("Couche des tronçons hydrographiques"),
                 types=[QgsProcessing.TypeVectorLine]
             )
         )
@@ -63,6 +65,9 @@ class WatercourseContinuityAlgorithm(BaseControlAlgorithm):
         complex_key_field = self.parameterAsString(parameters, self.COMPLEX_KEY_FIELD, context)
         segment_layer = self.parameterAsVectorLayer(parameters, self.SEGMENT_LAYER, context)
         segment_key_field = self.parameterAsString(parameters, self.SEGMENT_KEY_FIELD, context)
+        id_field = self.get_id_field(parameters, context)
+        if not self.validate_id_field(complex_layer, id_field, feedback):
+            return {'OUTPUT': 'Erreur'}
 
         if complex_key_field not in complex_layer.fields().names():
             feedback.reportError(self.tr("Le champ clé '{}' n'existe pas dans la couche des objets complexes").format(complex_key_field))
@@ -155,7 +160,7 @@ class WatercourseContinuityAlgorithm(BaseControlAlgorithm):
                         invalid_features.append([
                             "Continuité des cours d'eau",
                             complex_layer.name(),
-                            complex_feature.id(),
+                            self.get_feature_identifier(complex_feature, id_field),
                             complex_key_field,
                             error_message,
                             endpoint_geom

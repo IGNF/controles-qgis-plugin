@@ -22,6 +22,10 @@ class BuildingZAIIntersectionAlgorithm(BaseControlAlgorithm):
     ZAI_LAYER = 'ZAI_LAYER'
     BUILDING_LAYERS = 'BUILDING_LAYERS'
 
+    # Le champ identifiant (ID_FIELD, ajouté par BaseControlAlgorithm) doit
+    # être lié à la couche ZAI_LAYER.
+    INPUT_LAYER = ZAI_LAYER
+
     def initAlgorithm(self, config=None):
         self.addParameter(
             QgsProcessingParameterVectorLayer(
@@ -43,6 +47,9 @@ class BuildingZAIIntersectionAlgorithm(BaseControlAlgorithm):
     def processAlgorithm(self, parameters, context, feedback):
         zai_layer = self.parameterAsVectorLayer(parameters, self.ZAI_LAYER, context)
         building_layers = self.parameterAsVectorLayer(parameters, self.BUILDING_LAYERS, context)
+        id_field = self.get_id_field(parameters, context)
+        if not self.validate_id_field(zai_layer, id_field, feedback):
+            return {'OUTPUT': 'Erreur'}
 
         building_index, building_features = self._build_index([building_layers])
 
@@ -50,14 +57,14 @@ class BuildingZAIIntersectionAlgorithm(BaseControlAlgorithm):
 
         if zai_layer is not None:
             issues.extend(self._find_non_intersecting_features(
-                zai_layer, "Zone d'activité ou d'intérêt", building_index, building_features
+                zai_layer, "Zone d'activité ou d'intérêt", building_index, building_features, id_field
             ))
 
         self.report_issues(issues, "Intersection Bâti / ZAI")
 
         return self.processing_done_result()
 
-    def _find_non_intersecting_features(self, layer, label, building_index, building_features):
+    def _find_non_intersecting_features(self, layer, label, building_index, building_features, id_field=None):
         """Retourne la liste des lignes de contrôle pour les objets de `layer` qui
         n'intersectent aucun Bâtiment BDUni."""
         issues = []
@@ -70,7 +77,7 @@ class BuildingZAIIntersectionAlgorithm(BaseControlAlgorithm):
                 issues.append([
                     "Intersection Bâti / ZAI",
                     layer.name(),
-                    feature.id(),
+                    self.get_feature_identifier(feature, id_field),
                     'geometry',
                     "Cet objet n’intersecte aucun bâtiment",
                     geom.pointOnSurface()

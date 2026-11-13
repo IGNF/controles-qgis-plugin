@@ -28,6 +28,8 @@ class IsolatedBridgeAlgorithm(BaseControlAlgorithm):
     BRIDGE_VALUE = 'BRIDGE_VALUE'
     TUNNEL_VALUE = 'TUNNEL_VALUE'
 
+    INPUT_LAYER = ROAD_LAYER
+
     def initAlgorithm(self, config=None):
         self.addParameter(
             QgsProcessingParameterVectorLayer(
@@ -95,6 +97,9 @@ class IsolatedBridgeAlgorithm(BaseControlAlgorithm):
         raw_tunnel_value = self.parameterAsString(parameters, self.TUNNEL_VALUE, context)
         tunnel_values = field_values_as_string_list(raw_tunnel_value)
         tunnel_value = tunnel_values[0] if tunnel_values else None
+        id_field = self.get_id_field(parameters, context)
+        if not self.validate_id_field(road_layer, id_field, feedback):
+            return {'OUTPUT': 'Erreur'}
 
         issues = []
         distance_threshold = 0.5  # 50 cm en mètres
@@ -135,7 +140,7 @@ class IsolatedBridgeAlgorithm(BaseControlAlgorithm):
                         issues.append([
                             'Pont isolé',
                             road_layer.name(),
-                            road.id(),
+                            self.get_feature_identifier(road, id_field),
                             position_field,
                             'Problème de position au sol sur le tronçon',
                             road_geom.centroid()
@@ -151,7 +156,7 @@ class IsolatedBridgeAlgorithm(BaseControlAlgorithm):
                         issues.append([
                             'Pont isolé',
                             road_layer.name(),
-                            road.id(),
+                            self.get_feature_identifier(road, id_field),
                             position_field,
                             'Problème de position au sol sur le tronçon',
                             road_geom.centroid()

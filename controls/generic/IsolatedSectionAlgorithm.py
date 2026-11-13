@@ -56,6 +56,9 @@ class IsolatedSectionAlgorithm(BaseControlAlgorithm):
     def processAlgorithm(self, parameters, context, feedback):
         layer = self.parameterAsVectorLayer(parameters, self.INPUT_LAYER, context)
         etat_field = self.parameterAsString(parameters, self.ETAT_FIELD, context)
+        id_field = self.get_id_field(parameters, context)
+        if not self.validate_id_field(layer, id_field, feedback):
+            return {'OUTPUT': 'Erreur'}
 
         if etat_field not in layer.fields().names():
             feedback.reportError(self.tr("Le champ Etat '{}' n'existe pas dans la couche").format(etat_field))
@@ -101,7 +104,7 @@ class IsolatedSectionAlgorithm(BaseControlAlgorithm):
                 isolated_sections.append([
                     'Géométrie tronçons isolés',
                     layer.name(),
-                    feature.id(),
+                    self.get_feature_identifier(feature, id_field),
                     'geometry',
                     "Ce tronçon est isolé",
                     geom.centroid()

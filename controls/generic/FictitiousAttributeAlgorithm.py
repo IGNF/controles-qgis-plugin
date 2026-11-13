@@ -54,6 +54,9 @@ class FictitiousAttributeAlgorithm(BaseControlAlgorithm):
         layer = self.parameterAsVectorLayer(parameters, self.INPUT_LAYER, context)
         fictif_field = self.parameterAsString(parameters, self.FICTIF_FIELD, context)
         area_threshold = self.parameterAsDouble(parameters, self.AREA_THRESHOLD, context)
+        id_field = self.get_id_field(parameters, context)
+        if not self.validate_id_field(layer, id_field, feedback):
+            return {'OUTPUT': 'Erreur'}
 
         fictif_attribute_feature = []
         if layer.geometryType() != QgsWkbTypes.PolygonGeometry:
@@ -75,7 +78,7 @@ class FictitiousAttributeAlgorithm(BaseControlAlgorithm):
                     fictif_attribute_feature.append([
                         'Enceinte/Fictif',
                         layer.name(),
-                        feature.id(),
+                        self.get_feature_identifier(feature, id_field),
                         fictif_field,
                         "La valeur du champ '{}' n'est pas cohérente avec la surface de l'objet {} ".format(
                             fictif_field, layer.name()),

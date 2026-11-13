@@ -26,6 +26,8 @@ class BuildingResidentialZoneProximityAlgorithm(BaseControlAlgorithm):
     BUILDING_LAYERS = 'BUILDING_LAYERS'
     DISTANCE = 'DISTANCE'
 
+    INPUT_LAYER = RESIDENTIAL_ZONE_LAYER
+
     def initAlgorithm(self, config=None):
         self.addParameter(
             QgsProcessingParameterVectorLayer(
@@ -64,6 +66,9 @@ class BuildingResidentialZoneProximityAlgorithm(BaseControlAlgorithm):
         input_layers = self.parameterAsLayerList(parameters, self.BUILDING_LAYERS, context)
         json_path = self.parameterAsFile(parameters, self.PARAM_JSON, context)
         distance = self.parameterAsDouble(parameters, self.DISTANCE, context)
+        id_field = self.get_id_field(parameters, context)
+        if not self.validate_id_field(residential_layer, id_field, feedback):
+            return {'OUTPUT': 'Erreur'}
 
         param_json = self.load_json_parameters(json_path)
 
@@ -94,7 +99,7 @@ class BuildingResidentialZoneProximityAlgorithm(BaseControlAlgorithm):
                         issues.append([
                             "Proximité Bâti / Zone d'habitation",
                             residential_layer.name(),
-                            zone.id(),
+                            self.get_feature_identifier(zone, id_field),
                             'geometry',
                             "Pas de Bâtiment à moins de {}m de la Zone d'habitation".format(distance),
                             zone.geometry().pointOnSurface()

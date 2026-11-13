@@ -31,13 +31,13 @@ class DiscontinuityImportanceAlgorithm(BaseControlAlgorithm):
     # Niveaux d'importance cumulés étudiés : {1}, {1,2}, {1,2,3}, {1,2,3,4}
     IMPORTANCE_LEVELS = [1, 2, 3, 4]
 
-    SEGMENT_LAYER = 'SEGMENT_LAYER'
+    INPUT_LAYER = 'INPUT_LAYER'
     IMPORTANCE_FIELD = 'IMPORTANCE_FIELD'
 
     def initAlgorithm(self, config=None):
         self.addParameter(
             QgsProcessingParameterVectorLayer(
-                self.SEGMENT_LAYER,
+                self.INPUT_LAYER,
                 self.tr("Couche des tronçons de route"),
                 types=[QgsProcessing.TypeVectorLine]
             )
@@ -46,15 +46,18 @@ class DiscontinuityImportanceAlgorithm(BaseControlAlgorithm):
             QgsProcessingParameterField(
                 self.IMPORTANCE_FIELD,
                 self.tr("Champ Importance"),
-                parentLayerParameterName=self.SEGMENT_LAYER,
+                parentLayerParameterName=self.INPUT_LAYER,
                 type=QgsProcessingParameterField.Any
             )
         )
         super().initAlgorithm(config)
 
     def processAlgorithm(self, parameters, context, feedback):
-        segment_layer = self.parameterAsVectorLayer(parameters, self.SEGMENT_LAYER, context)
+        segment_layer = self.parameterAsVectorLayer(parameters, self.INPUT_LAYER, context)
         importance_field = self.parameterAsString(parameters, self.IMPORTANCE_FIELD, context)
+        id_field = self.get_id_field(parameters, context)
+        if not self.validate_id_field(segment_layer, id_field, feedback):
+            return {'OUTPUT': 'Erreur'}
 
         if importance_field not in segment_layer.fields().names():
             feedback.reportError(self.tr("Le champ Importance '{}' n'existe pas dans la couche des tronçons").format(importance_field))
@@ -69,6 +72,7 @@ class DiscontinuityImportanceAlgorithm(BaseControlAlgorithm):
 
         # Lecture des tronçons avec leur valeur d'Importance (ignorée si non numérique)
         segments = []
+        feature_by_id = {}
         for feature in segment_layer.getFeatures():
             raw_value = feature[importance_field]
             if raw_value is None or raw_value == '':
@@ -88,6 +92,7 @@ class DiscontinuityImportanceAlgorithm(BaseControlAlgorithm):
                 continue
 
             segments.append((feature.id(), importance_value, vertices[0], vertices[-1]))
+            feature_by_id[feature.id()] = feature
 
         if not segments:
             return self.processing_done_result()
@@ -120,7 +125,7 @@ class DiscontinuityImportanceAlgorithm(BaseControlAlgorithm):
                     invalid_features.append([
                         "Discontinuité importance",
                         segment_layer.name(),
-                        connections[0],
+                        self.get_feature_identifier(feature_by_id[connections[0]], id_field),
                         importance_field,
                         '',
                         endpoint_geom

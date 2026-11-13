@@ -45,6 +45,9 @@ class MicroObjectAlgorithm(BaseControlAlgorithm):
     def processAlgorithm(self, parameters, context, feedback):
         layer = self.parameterAsVectorLayer(parameters, self.INPUT_LAYER, context)
         threshold = self.parameterAsDouble(parameters, self.THRESHOLD, context)
+        id_field = self.get_id_field(parameters, context)
+        if not self.validate_id_field(layer, id_field, feedback):
+            return {'OUTPUT': 'Erreur'}
 
         micro_objects = []
         if layer.geometryType() not in [QgsWkbTypes.LineGeometry, QgsWkbTypes.PolygonGeometry]:
@@ -71,7 +74,7 @@ class MicroObjectAlgorithm(BaseControlAlgorithm):
                 micro_objects.append([
                     'Micro-objet',
                     layer.name(),
-                    feature.id(),
+                    self.get_feature_identifier(feature, id_field),
                     'geometrie',
                     comment,
                     geom.centroid()

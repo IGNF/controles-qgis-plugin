@@ -30,6 +30,8 @@ class BuildingUninhabitedLocalityProximityAlgorithm(BaseControlAlgorithm):
     RUINS_VALUE = 'RUINS_VALUE'
     DISTANCE = 'DISTANCE'
 
+    INPUT_LAYER = LOCALITY_LAYER
+
     def initAlgorithm(self, config=None):
         self.addParameter(
             QgsProcessingParameterVectorLayer(
@@ -109,6 +111,9 @@ class BuildingUninhabitedLocalityProximityAlgorithm(BaseControlAlgorithm):
         ruins_value = ruins_values[0] if ruins_values else None
 
         distance = self.parameterAsDouble(parameters, self.DISTANCE, context)
+        id_field = self.get_id_field(parameters, context)
+        if not self.validate_id_field(locality_layer, id_field, feedback):
+            return {'OUTPUT': 'Erreur'}
 
 
         def ruins_filter(feature):
@@ -135,7 +140,7 @@ class BuildingUninhabitedLocalityProximityAlgorithm(BaseControlAlgorithm):
                 issues.append([
                     "Proximité Bâti / Lieu-dit non habité",
                     locality_layer.name(),
-                    locality.id(),
+                    self.get_feature_identifier(locality, id_field),
                     'geometry',
                     "Il y a un Bâtiment à moins de {}m du Lieu-dit non habité de Nature 'Lieu-dit non habité'".format(
                         distance),

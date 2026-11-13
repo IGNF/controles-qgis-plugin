@@ -76,6 +76,10 @@ class BuildingAltitudeAlgorithm(BaseControlAlgorithm):
         attribute_field = self.parameterAsString(parameters, self.ATTRIBUTE_FIELD, context)
         altitude_field = self.parameterAsString(parameters, self.ALTITUDE_FIELD, context)
         altitude_value = self.parameterAsDouble(parameters, self.ALTITUDE_VALUE, context)
+        id_field = self.get_id_field(parameters, context)
+        if not self.validate_id_field(layer, id_field, feedback):
+            return {'OUTPUT': 'Erreur'}
+
 
         # Valeurs sélectionnées dynamiquement via le widget (stockées en chaîne séparée par des virgules)
         raw_attribute_values = self.parameterAsString(parameters, self.ATTRIBUTE_VALUES, context)
@@ -104,7 +108,7 @@ class BuildingAltitudeAlgorithm(BaseControlAlgorithm):
                 invalid_buildings.append([
                     'Bâti/bâtiment',
                     layer.name(),
-                    feature.id(),
+                    self.get_feature_identifier(feature, id_field),
                     altitude_field,
                     'Le champ "Altitude minimale sol" doit être différent de "-100" ou de vide" ',
                     feature.geometry().pointOnSurface()

@@ -15,7 +15,7 @@ class TGVNetworkContinuityAlgorithm(BaseControlAlgorithm):
 
     ALG_NAME = 'I.03'
     ALG_DISPLAY_NAME = "Continuité du réseau TGV"
-    ALG_GROUP = 'Controles du thème Transport'
+    ALG_GROUP = 'Controles du thème Transport ferroviaire'
     ALG_GROUP_ID = 'I'
     ALG_HELP = "Ce contrôle détecte toutes les discontinuités du graphe formé par les tronçons de voie ferrée dont le champ Nature = 'LGV’"
 
@@ -54,6 +54,9 @@ class TGVNetworkContinuityAlgorithm(BaseControlAlgorithm):
     def processAlgorithm(self, parameters, context, feedback):
         layer = self.parameterAsVectorLayer(parameters, self.INPUT_LAYER, context)
         nature_field = self.parameterAsString(parameters, self.NATURE_FIELD, context)
+        id_field = self.get_id_field(parameters, context)
+        if not self.validate_id_field(layer, id_field, feedback):
+            return {'OUTPUT': 'Erreur'}
 
         if nature_field not in layer.fields().names():
             feedback.reportError(self.tr("Le champ Nature '{}' n'existe pas dans la couche").format(nature_field))
@@ -73,6 +76,7 @@ class TGVNetworkContinuityAlgorithm(BaseControlAlgorithm):
         # ainsi que la liste des tronçons touchant chaque extrémité (pour l'analyse de connexité)
         endpoints = {}
         segment_endpoints = {}
+        feature_by_id = {}
 
         for feature in layer.getFeatures():
             nature_value = str(feature[nature_field]) if feature[nature_field] is not None else None
@@ -96,6 +100,7 @@ class TGVNetworkContinuityAlgorithm(BaseControlAlgorithm):
             endpoints.setdefault(start_key, []).append(feature.id())
             endpoints.setdefault(end_key, []).append(feature.id())
             segment_endpoints[feature.id()] = (start_key, end_key)
+            feature_by_id[feature.id()] = feature
 
         if not segment_endpoints:
             return self.processing_done_result()
@@ -134,7 +139,7 @@ class TGVNetworkContinuityAlgorithm(BaseControlAlgorithm):
                     invalid_features.append([
                         "Continuité du réseau TGV",
                         layer.name(),
-                        connections[0],
+                        self.get_feature_identifier(feature_by_id[connections[0]], id_field),
                         nature_field,
                         "Interruption du réseau TGV",
                         endpoint_geom

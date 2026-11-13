@@ -42,6 +42,9 @@ class LinearProximityAlgorithm(BaseControlAlgorithm):
     def processAlgorithm(self, parameters, context, feedback):
         layer = self.parameterAsVectorLayer(parameters, self.INPUT_LAYER, context)
         distance = self.parameterAsDouble(parameters, self.DISTANCE, context)
+        id_field = self.get_id_field(parameters, context)
+        if not self.validate_id_field(layer, id_field, feedback):
+            return {'OUTPUT': 'Erreur'}
 
         proximity_issues = []
         if layer.geometryType() != QgsWkbTypes.LineGeometry:
@@ -72,7 +75,7 @@ class LinearProximityAlgorithm(BaseControlAlgorithm):
                     proximity_issues.append([
                         'Proximité des linéaires',
                         layer.name(),
-                        feature.id(),
+                        self.get_feature_identifier(feature, id_field),
                         'geometry',
                         '',
                         geom.centroid()

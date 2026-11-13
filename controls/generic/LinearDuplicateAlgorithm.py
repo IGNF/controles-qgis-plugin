@@ -32,6 +32,9 @@ class LinearDuplicateAlgorithm(BaseControlAlgorithm):
 
     def processAlgorithm(self, parameters, context, feedback):
         layer = self.parameterAsVectorLayer(parameters, self.INPUT_LAYER, context)
+        id_field = self.get_id_field(parameters, context)
+        if not self.validate_id_field(layer, id_field, feedback):
+            return {'OUTPUT': 'Erreur'}
 
         geom_type = QgsWkbTypes.geometryType(layer.wkbType())
         if geom_type != QgsWkbTypes.LineGeometry:
@@ -55,7 +58,7 @@ class LinearDuplicateAlgorithm(BaseControlAlgorithm):
                         doublons.append([
                             "Doublons partiels linéaire",
                             layer.name(),
-                            f1.id(),
+                            self.get_feature_identifier(f1, id_field),
                             "geometry",
                             'Doublon partiel linéaire',
                             intersection.pointOnSurface()

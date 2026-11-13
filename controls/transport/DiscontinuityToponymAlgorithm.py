@@ -29,6 +29,8 @@ class DiscontinuityToponymAlgorithm(BaseControlAlgorithm):
     COMPLEX_TYPE_FIELD = 'COMPLEX_TYPE_FIELD'
     TYPE_ROUTE_VALUES = 'TYPE_ROUTE_VALUES'
 
+    INPUT_LAYER = SEGMENT_LAYER
+
     def initAlgorithm(self, config=None):
         self.addParameter(
             QgsProcessingParameterVectorLayer(
@@ -86,6 +88,9 @@ class DiscontinuityToponymAlgorithm(BaseControlAlgorithm):
         complex_layer = self.parameterAsVectorLayer(parameters, self.COMPLEX_LAYER, context)
         complex_key_field = self.parameterAsString(parameters, self.COMPLEX_KEY_FIELD, context)
         type_route_field = self.parameterAsString(parameters, self.COMPLEX_TYPE_FIELD, context)
+        id_field = self.get_id_field(parameters, context)
+        if not self.validate_id_field(segment_layer, id_field, feedback):
+            return {'OUTPUT': 'Erreur'}
 
         if segment_key_field not in segment_layer.fields().names():
             feedback.reportError(self.tr("Le champ clé '{}' n'existe pas dans la couche des tronçons").format(segment_key_field))
@@ -125,6 +130,7 @@ class DiscontinuityToponymAlgorithm(BaseControlAlgorithm):
         # (pour l'analyse de connexité)
         endpoints = {}
         segment_endpoints = {}
+        feature_by_id = {}
 
         for feature in segment_layer.getFeatures():
             key_value = feature[segment_key_field]
@@ -148,6 +154,7 @@ class DiscontinuityToponymAlgorithm(BaseControlAlgorithm):
             endpoints.setdefault(start_key, []).append(feature.id())
             endpoints.setdefault(end_key, []).append(feature.id())
             segment_endpoints[feature.id()] = (start_key, end_key)
+            feature_by_id[feature.id()] = feature
 
         if not segment_endpoints:
             return self.processing_done_result()
@@ -186,7 +193,7 @@ class DiscontinuityToponymAlgorithm(BaseControlAlgorithm):
                     invalid_features.append([
                         "Discontinuité toponyme",
                         segment_layer.name(),
-                        connections[0],
+                        self.get_feature_identifier(feature_by_id[connections[0]], id_field),
                         segment_key_field,
                         "Interruption du champ Toponyme",
                         endpoint_geom

@@ -11,12 +11,12 @@
  ***************************************************************************/
 """
 
-from qgis.core import QgsProcessingProvider, QgsMessageLog, Qgis
+from qgis.core import QgsProcessingProvider, QgsMessageLog, Qgis, QgsProcessingAlgorithm
 from qgis.PyQt.QtGui import QIcon
 import os
 import importlib
 import inspect
-from qgis.core import QgsProcessingAlgorithm
+from BaseControlAlgorithm import BaseControlAlgorithm
 
 LOG_TAG = 'Contrôles BDUni'
 
@@ -99,6 +99,8 @@ class ControlesBDUniProvider(QgsProcessingProvider):
                     for name, obj in inspect.getmembers(module, inspect.isclass):
                         if (issubclass(obj, QgsProcessingAlgorithm) and
                             obj is not QgsProcessingAlgorithm and
+                            obj is not BaseControlAlgorithm and
+                            obj.__module__ == module.__name__ and
                             hasattr(obj, 'createInstance')):
                             try:
                                 # Créer une instance de l'algorithme

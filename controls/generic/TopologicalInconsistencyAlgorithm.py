@@ -34,6 +34,9 @@ class TopologicalInconsistencyAlgorithm(BaseControlAlgorithm):
 
     def processAlgorithm(self, parameters, context, feedback):
         layer = self.parameterAsVectorLayer(parameters, self.INPUT_LAYER, context)
+        id_field = self.get_id_field(parameters, context)
+        if not self.validate_id_field(layer, id_field, feedback):
+            return {'OUTPUT': 'Erreur'}
 
         inconsistencies = []
         geom_type = QgsWkbTypes.geometryType(layer.wkbType())
@@ -75,7 +78,7 @@ class TopologicalInconsistencyAlgorithm(BaseControlAlgorithm):
                         inconsistencies.append([
                             "Incohérences topologiques",
                             layer.name(),
-                            feature.id(),
+                            self.get_feature_identifier(feature, id_field),
                             "geometry",
                             'Incohérence topologique détectée',
                             start_geom
@@ -91,7 +94,7 @@ class TopologicalInconsistencyAlgorithm(BaseControlAlgorithm):
                         inconsistencies.append([
                             "Incohérences topologiques",
                             layer.name(),
-                            feature.id(),
+                            self.get_feature_identifier(feature, id_field),
                             "geometry",
                             'Incohérence topologique détectée',
                             end_geom

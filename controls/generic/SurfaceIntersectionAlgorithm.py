@@ -32,6 +32,9 @@ class SurfaceIntersectionAlgorithm(BaseControlAlgorithm):
 
     def processAlgorithm(self, parameters, context, feedback):
         layer = self.parameterAsVectorLayer(parameters, self.INPUT_LAYER, context)
+        id_field = self.get_id_field(parameters, context)
+        if not self.validate_id_field(layer, id_field, feedback):
+            return {'OUTPUT': 'Erreur'}
 
         intersection_features = []
         if layer.geometryType() != QgsWkbTypes.PolygonGeometry:
@@ -54,7 +57,7 @@ class SurfaceIntersectionAlgorithm(BaseControlAlgorithm):
                         intersection_features.append([
                             'Intersection de surfaciques',
                             layer.name(),
-                            feature1.id(),
+                            self.get_feature_identifier(feature1, id_field),
                             "geometry",
                             "Intersection franche",
                             intersection.centroid()

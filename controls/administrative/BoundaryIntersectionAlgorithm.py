@@ -32,6 +32,9 @@ class BoundaryIntersectionAlgorithm(BaseControlAlgorithm):
 
     def processAlgorithm(self, parameters, context, feedback):
         layer = self.parameterAsVectorLayer(parameters, self.INPUT_LAYER, context)
+        id_field = self.get_id_field(parameters, context)
+        if not self.validate_id_field(layer, id_field, feedback):
+            return {'OUTPUT': 'Erreur'}
 
         invalid_features = []
 
@@ -94,7 +97,10 @@ class BoundaryIntersectionAlgorithm(BaseControlAlgorithm):
                         invalid_features.append([
                             'Intersections de limites administratives',
                             layer.name(),
-                            '{}, {}'.format(feature.id(), nearby_feature.id()),
+                            '{}, {}'.format(
+                                self.get_feature_identifier(feature, id_field),
+                                self.get_feature_identifier(nearby_feature, id_field)
+                            ),
                             'geometry',
                             "Intersection de limites administratives",
                             QgsGeometry.fromPointXY(QgsPointXY(point_key[0], point_key[1]))

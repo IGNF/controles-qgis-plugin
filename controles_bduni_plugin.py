@@ -22,12 +22,11 @@
  ***************************************************************************/
 """
 from qgis.PyQt.QtCore import QSettings, QTranslator, QCoreApplication, Qt
-from qgis import QtCore
 from qgis.core import (QgsProject, Qgis, QgsProcessingContext, QgsProcessingFeedback,
                        QgsApplication, QgsProcessingParameterVectorLayer,
                        QgsProcessingParameterFile)
 from qgis.PyQt.QtGui import QIcon
-from qgis.PyQt.QtWidgets import QAction, QListWidget, QListWidgetItem, QMessageBox
+from qgis.PyQt.QtWidgets import QAction, QListWidgetItem, QMessageBox
 import sip
 import gc
 
@@ -273,11 +272,11 @@ class ControlesBDUniPlugin:
         layers = []
         for i in range(self.dlg.controlListWidget.count()):
             control_item = self.dlg.controlListWidget.item(i)
-            if control_item.checkState() == QtCore.Qt.Checked:
+            if control_item.checkState() == Qt.Checked:
                 controls.append(control_item.data(Qt.UserRole))
         for j in range(self.dlg.layerListWidget.count()):
             layer_item = self.dlg.layerListWidget.item(j)
-            if layer_item.checkState() == QtCore.Qt.Checked:
+            if layer_item.checkState() == Qt.Checked:
                 layers.append(QgsProject.instance().mapLayersByName(layer_item.text())[0])
         if not controls:
             self._push_message("Erreur", "Aucun contrôle séléctionné", clear=True)

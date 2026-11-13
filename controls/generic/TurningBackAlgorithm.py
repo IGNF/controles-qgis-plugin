@@ -32,6 +32,9 @@ class TurningBackAlgorithm(BaseControlAlgorithm):
     def processAlgorithm(self, parameters, context, feedback):
         layer = self.parameterAsVectorLayer(parameters, self.INPUT_LAYER, context)
         angle_threshold = 10.0
+        id_field = self.get_id_field(parameters, context)
+        if not self.validate_id_field(layer, id_field, feedback):
+            return {'OUTPUT': 'Erreur'}
 
         turning_backs = []
         if layer.geometryType() != QgsWkbTypes.LineGeometry:
@@ -65,7 +68,7 @@ class TurningBackAlgorithm(BaseControlAlgorithm):
                     turning_backs.append([
                         'Rebroussement',
                         layer.name(),
-                        feature.id(),
+                        self.get_feature_identifier(feature, id_field),
                         'geometrie',
                         'Rebroussement',
                         QgsPoint(p2.x(), p2.y())

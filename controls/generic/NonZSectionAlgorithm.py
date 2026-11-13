@@ -65,6 +65,9 @@ class NonZSectionAlgorithm(BaseControlAlgorithm):
         layer = self.parameterAsVectorLayer(parameters, self.INPUT_LAYER, context)
         attribute_field = self.parameterAsString(parameters, self.ATTRIBUTE_FIELD, context)
         z_field = self.parameterAsString(parameters, self.Z_FIELD, context)
+        id_field = self.get_id_field(parameters, context)
+        if not self.validate_id_field(layer, id_field, feedback):
+            return {'OUTPUT': 'Erreur'}
 
         # Valeurs sélectionnées dynamiquement via le widget (stockées en chaîne séparée par des virgules)
         raw_attribute_values = self.parameterAsString(parameters, self.ATTRIBUTE_VALUES, context)
@@ -92,7 +95,7 @@ class NonZSectionAlgorithm(BaseControlAlgorithm):
                 non_z_objects.append([
                     'Tronçon sans Z',
                     layer.name(),
-                    feature.id(),
+                    self.get_feature_identifier(feature, id_field),
                     z_field,
                     "L'objet comporte un champ Z vide ({}={})".format(attribute_field, attribute_value),
                     feature.geometry().pointOnSurface()

@@ -40,6 +40,9 @@ class NumericAttributeAlgorithm(BaseControlAlgorithm):
     def processAlgorithm(self, parameters, context, feedback):
         layer = self.parameterAsVectorLayer(parameters, self.INPUT_LAYER, context)
         fields = self.parameterAsFields(parameters, self.FIELDS, context)
+        id_field = self.get_id_field(parameters, context)
+        if not self.validate_id_field(layer, id_field, feedback):
+            return {'OUTPUT': 'Erreur'}
 
         numeric_attributes_feature = []
 
@@ -54,7 +57,7 @@ class NumericAttributeAlgorithm(BaseControlAlgorithm):
                         numeric_attributes_feature.append(
                             ['Attributs numériques',
                             layer.name(),
-                            feature.id(),
+                            self.get_feature_identifier(feature, id_field),
                             att,
                             '',
                             feature.geometry().pointOnSurface()])

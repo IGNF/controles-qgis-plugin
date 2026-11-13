@@ -32,6 +32,8 @@ class PylonElectricLineInconsistencyAlgorithm(BaseControlAlgorithm):
     ATTRIBUTE_VALUES = 'ATTRIBUTE_VALUES'
     DISTANCE_THRESHOLD = 'DISTANCE_THRESHOLD'
 
+    INPUT_LAYER = PYLON_LAYER
+
     def initAlgorithm(self, config=None):
         self.addParameter(
             QgsProcessingParameterVectorLayer(
@@ -80,6 +82,9 @@ class PylonElectricLineInconsistencyAlgorithm(BaseControlAlgorithm):
         line_layer = self.parameterAsVectorLayer(parameters, self.LINE_LAYER, context)
         distance_threshold = self.parameterAsDouble(parameters, self.DISTANCE_THRESHOLD, context)
         attribute_field = self.parameterAsString(parameters, self.ATTRIBUTE_FIELD, context)
+        id_field = self.get_id_field(parameters, context)
+        if not self.validate_id_field([pylon_layer, line_layer], id_field, feedback):
+            return {'OUTPUT': 'Erreur'}
 
         # Valeurs sélectionnées dynamiquement via le widget (stockées en chaîne séparée par des virgules)
         raw_attribute_values = self.parameterAsString(parameters, self.ATTRIBUTE_VALUES, context)
@@ -134,7 +139,7 @@ class PylonElectricLineInconsistencyAlgorithm(BaseControlAlgorithm):
                             invalid_objects.append([
                                 "Recherche d'incohérence géométrique entre pylône et point intermédiaire de la ligne éléctrique",
                                 pylon_layer.name(),
-                                pylon_feature.id(),
+                                self.get_feature_identifier(pylon_feature, id_field),
                                 'geometrie',
                                 'Le Z du pylône est différent du Z du point intermédiaire de la ligne électrique',
                                 pylon_geom
@@ -145,7 +150,7 @@ class PylonElectricLineInconsistencyAlgorithm(BaseControlAlgorithm):
                     invalid_objects.append([
                         "Recherche d'incohérence géométrique entre pylône et point intermédiaire de la ligne éléctrique",
                         pylon_layer.name(),
-                        pylon_feature.id(),
+                        self.get_feature_identifier(pylon_feature, id_field),
                         'geometrie',
                         "Le pylône est situé à moins de 10 m du point intermédiaire le plus proche de la ligne électrique",
                         pylon_geom
@@ -163,7 +168,7 @@ class PylonElectricLineInconsistencyAlgorithm(BaseControlAlgorithm):
                 invalid_objects.append([
                     "Recherche d'incohérence géométrique entre pylône et point intermédiaire de la ligne éléctrique",
                     pylon_layer.name(),
-                    pylon_feature.id(),
+                    self.get_feature_identifier(pylon_feature, id_field),
                     'geometrie',
                     "Le pylône n'est pas rattaché à un point intermédiaire de la ligne électrique",
                     pylon_geom
@@ -193,7 +198,7 @@ class PylonElectricLineInconsistencyAlgorithm(BaseControlAlgorithm):
                 invalid_objects.append([
                     "Recherche d'incohérence géométrique entre pylône et point intermédiaire de la ligne éléctrique",
                     line_layer.name(),
-                    line_feature.id(),
+                    self.get_feature_identifier(line_feature, id_field),
                     'geometrie',
                     "Le point intermédiaire de la ligne électrique n'a pas de pylône situé à moins de 10 m",
                     QgsGeometry.fromPointXY(QgsPointXY(inter_point.x(), inter_point.y()))
