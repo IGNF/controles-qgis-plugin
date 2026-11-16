@@ -16,9 +16,7 @@ class GreenRouteInconsistencyAlgorithm(BaseControlAlgorithm):
     ALG_GROUP = 'Controles du thème Transport'
     ALG_GROUP_ID = 'D'
     ALG_HELP = (
-        "Ce contrôle détecte les incohérences entre les attributs Importance et Itinéraire vert. "
-        "Est interdite la combinaison Importance = 3, 4 ou 5 et Itinéraire vert = Vrai. "
-        "Les valeurs contrôlées sont modifiables en paramètre.")
+        "Ce contrôle détecte les incohérences entre les attributs Importance et Itinéraire vert.")
 
     INPUT_LAYER = 'INPUT_LAYER'
     IMPORTANCE_FIELD = 'IMPORTANCE_FIELD'
@@ -120,7 +118,7 @@ class GreenRouteInconsistencyAlgorithm(BaseControlAlgorithm):
                 segment_layer.name(),
                 self.get_feature_identifier(feature, id_field),
                 importance_field,
-                "",
+                "Incohérence entre Importance et Itinéraire vert",
                 geom.pointOnSurface()
             ])
 
