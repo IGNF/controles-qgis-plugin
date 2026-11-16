@@ -1,0 +1,106 @@
+from qgis.core import (
+    QgsProcessingParameterVectorLayer,
+    QgsProcessing,
+    QgsWkbTypes,
+    QgsGeometry,
+    QgsPointXY
+)
+
+from BaseControlAlgorithm import BaseControlAlgorithm
+
+
+class TopologicalInconsistencyAlgorithm(BaseControlAlgorithm):
+
+    ALG_NAME = 'A.09'
+    ALG_DISPLAY_NAME = "Incohérences topologiques"
+    ALG_GROUP = 'Controles génériques géométriques'
+    ALG_GROUP_ID = 'A'
+    ALG_HELP = (
+        "Ce contrôle vérifie pour chaque graphe, que les extrémités de tronçon qui ne coïncident pas avec"
+        "l'extrémité d'un autre tronçon ne se trouvent pas à moins de 2 m d'un objet de même couche."
+    )
+
+    INPUT_LAYER = 'INPUT_LAYER'
+
+    def initAlgorithm(self, config=None):
+        self.addParameter(
+            QgsProcessingParameterVectorLayer(
+                self.INPUT_LAYER,
+                self.tr("Couche en entrée"),
+                types=[QgsProcessing.TypeVectorLine]
+            )
+        )
+        super().initAlgorithm(config)
+
+    def processAlgorithm(self, parameters, context, feedback):
+        layer = self.parameterAsVectorLayer(parameters, self.INPUT_LAYER, context)
+        id_field = self.get_id_field(parameters, context)
+        if not self.validate_id_field(layer, id_field, feedback):
+            return {'OUTPUT': 'Erreur'}
+
+        inconsistencies = []
+        geom_type = QgsWkbTypes.geometryType(layer.wkbType())
+        if geom_type != QgsWkbTypes.LineGeometry:
+            feedback.reportError(self.tr("{} n'est pas linéaire").format(layer.name()))
+            return self.processing_done_result()
+
+        features = list(layer.getFeatures())
+
+        connected_endpoints = set()
+        for f1 in features:
+            if not f1.geometry().isGeosValid():
+                continue
+            start1 = f1.geometry().vertexAt(0)
+            end1 = f1.geometry().vertexAt(f1.geometry().constGet().nCoordinates() - 1)
+            for f2 in features:
+                if f1.id() == f2.id() or not f2.geometry().isGeosValid():
+                    continue
+                start2 = f2.geometry().vertexAt(0)
+                end2 = f2.geometry().vertexAt(f2.geometry().constGet().nCoordinates() - 1)
+                if start1.distance(start2) < 0.001 or start1.distance(end2) < 0.001:
+                    connected_endpoints.add((f1.id(), 'start'))
+                if end1.distance(start2) < 0.001 or end1.distance(end2) < 0.001:
+                    connected_endpoints.add((f1.id(), 'end'))
+
+        for feature in features:
+            if not feature.geometry().isGeosValid():
+                continue
+            geom = feature.geometry()
+            start_point = geom.vertexAt(0)
+            end_point = geom.vertexAt(geom.constGet().nCoordinates() - 1)
+            if (feature.id(), 'start') not in connected_endpoints:
+                start_geom = QgsGeometry.fromPointXY(QgsPointXY(start_point))
+                buffer = start_geom.buffer(2.0, 8)
+                for other_feature in features:
+                    if feature.id() == other_feature.id() or not other_feature.geometry().isGeosValid():
+                        continue
+                    if buffer.intersects(other_feature.geometry()):
+                        inconsistencies.append([
+                            "Incohérences topologiques",
+                            layer.name(),
+                            self.get_feature_identifier(feature, id_field),
+                            "geometry",
+                            'Incohérence topologique détectée',
+                            start_geom
+                        ])
+                        break
+            if (feature.id(), 'end') not in connected_endpoints:
+                end_geom = QgsGeometry.fromPointXY(QgsPointXY(end_point))
+                buffer = end_geom.buffer(2.0, 8)
+                for other_feature in features:
+                    if feature.id() == other_feature.id() or not other_feature.geometry().isGeosValid():
+                        continue
+                    if buffer.intersects(other_feature.geometry()):
+                        inconsistencies.append([
+                            "Incohérences topologiques",
+                            layer.name(),
+                            self.get_feature_identifier(feature, id_field),
+                            "geometry",
+                            'Incohérence topologique détectée',
+                            end_geom
+                        ])
+                        break
+
+        self.report_issues(inconsistencies, "Incohérences topologiques")
+
+        return self.processing_done_result()

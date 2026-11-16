@@ -1,7 +1,5 @@
-from qgis.core import QgsVectorLayer, QgsField, QgsProject, edit, QgsFeature, QgsVectorFileWriter
+from qgis.core import QgsVectorLayer, QgsField, QgsProject, QgsFeature
 from qgis.PyQt.QtCore import QVariant
-import os
-import processing
 
 class ControlPointLayer(QgsVectorLayer):
 
@@ -12,10 +10,8 @@ class ControlPointLayer(QgsVectorLayer):
                                 QgsField("couche", QVariant.String),
                                 QgsField("id", QVariant.String),
                                 QgsField("attribut", QVariant.String),
-                                QgsField("commentaire", QVariant.String)])
+                                QgsField("Libellé", QVariant.String)])
         self.updateFields()
-        self.save()
-
 
     def add_features(self,features_array):
         """
@@ -28,12 +24,6 @@ class ControlPointLayer(QgsVectorLayer):
             self.provider.addFeature(controlpoint)
 
 
-    def save(self):
-        print(os.path.dirname(QgsProject.instance().fileName())+'/'+self.name())
-        params = {'INPUT': self,
-                  'OUTPUT': os.path.dirname(QgsProject.instance().fileName())+'/'+self.name()+'.gpkg',
-                  'LAYER_NAME': self.name()}
-        processing.run("native:savefeatures", params)
-        layer_path = os.path.dirname(QgsProject.instance().fileName())+'/'+self.name()+'.gpkg'
-        layer = QgsVectorLayer(layer_path+'|layername='+self.name(), self.name(), "ogr")
-        QgsProject.instance().addMapLayer(layer)
+    def save_as_temp_layer(self):
+        """Ajoute la couche directement dans le projet comme couche temporaire (sans fichier)."""
+        QgsProject.instance().addMapLayer(self)
