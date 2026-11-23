@@ -50,7 +50,7 @@ class RailwayNatureInconsistencyAlgorithm(BaseControlAlgorithm):
                 self.ELECTRIFIE_FIELD,
                 self.tr("Champ Electrifié"),
                 parentLayerParameterName=self.INPUT_LAYER,
-                type=QgsProcessingParameterField.String
+                type=QgsProcessingParameterField.Any
             )
         )
         self.addParameter(
@@ -64,7 +64,7 @@ class RailwayNatureInconsistencyAlgorithm(BaseControlAlgorithm):
         self.addParameter(
             QgsProcessingParameterFieldValues(
                 self.NATURE_ELECTRIFIEE_VALUES,
-                self.tr("Valeurs Nature attendues électrifiées (LGV, Métro, Tramway)"),
+                self.tr("Valeurs Nature attendues électrifiées "),
                 parentLayerParameterName=self.INPUT_LAYER,
                 parentFieldParameterName=self.NATURE_FIELD,
                 allowMultiple=True,
@@ -74,11 +74,11 @@ class RailwayNatureInconsistencyAlgorithm(BaseControlAlgorithm):
         self.addParameter(
             QgsProcessingParameterFieldValues(
                 self.LARGEUR_NORMALE_VALUE,
-                self.tr("Valeur Largeur de voie correspondant à « Normale »"),
+                self.tr("Valeur Largeur de voie"),
                 parentLayerParameterName=self.INPUT_LAYER,
                 parentFieldParameterName=self.LARGEUR_FIELD,
-                allowMultiple=False,
-                optional=True
+                allowMultiple=True,
+                optional=False
             )
         )
 
@@ -151,7 +151,7 @@ class RailwayNatureInconsistencyAlgorithm(BaseControlAlgorithm):
                     geom.pointOnSurface()
                 ])
 
-            if nature_value in nature_electrifiee_values and largeur_normale_value is not None and largeur_value != largeur_normale_value:
+            if nature_value in nature_electrifiee_values and largeur_normale_value is not None and largeur_value == largeur_normale_value:
                 invalid_features.append([
                     "Largeur de voie incohérente avec la Nature",
                     segment_layer.name(),

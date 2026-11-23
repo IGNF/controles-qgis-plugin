@@ -37,7 +37,7 @@ class RailwayGroundRelativePositionAlgorithm(BaseControlAlgorithm):
                 self.POSITION_FIELD,
                 self.tr("Champ Position par rapport au sol"),
                 parentLayerParameterName=self.INPUT_LAYER,
-                type=QgsProcessingParameterField.Numeric
+                type=QgsProcessingParameterField.Any
             )
         )
         self.addParameter(
@@ -45,13 +45,13 @@ class RailwayGroundRelativePositionAlgorithm(BaseControlAlgorithm):
                 self.METHODE_FIELD,
                 self.tr("Champ Méthode d'acquisition planimétrique"),
                 parentLayerParameterName=self.INPUT_LAYER,
-                type=QgsProcessingParameterField.String
+                type=QgsProcessingParameterField.Any
             )
         )
         self.addParameter(
             QgsProcessingParameterFieldValues(
                 self.METHODE_PHOTOGRAMMETRIE_VALUE,
-                self.tr("Valeur Méthode d'acquisition planimétrique correspondant à « Photogrammétrie »"),
+                self.tr("Valeur Méthode d'acquisition planimétrique"),
                 parentLayerParameterName=self.INPUT_LAYER,
                 parentFieldParameterName=self.METHODE_FIELD,
                 allowMultiple=False,

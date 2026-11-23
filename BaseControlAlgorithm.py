@@ -140,7 +140,7 @@ class BaseControlAlgorithm(QgsProcessingAlgorithm):
                 self.ID_FIELD,
                 self.tr("Identifiant"),
                 parentLayerParameterName=self.INPUT_LAYER,
-                optional=False
+                optional=True
             )
         )
         self.addParameter(
