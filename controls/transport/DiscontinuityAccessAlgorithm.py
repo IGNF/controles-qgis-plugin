@@ -69,7 +69,7 @@ class DiscontinuityAccessAlgorithm(BaseControlAlgorithm):
                 parentLayerParameterName=self.INPUT_LAYER,
                 parentFieldParameterName=self.NATURE_FIELD,
                 allowMultiple=True,
-                optional=False
+                optional=True
             )
         )
         super().initAlgorithm(config)
