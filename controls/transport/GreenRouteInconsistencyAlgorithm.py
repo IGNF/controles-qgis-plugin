@@ -12,7 +12,7 @@ from BaseControlAlgorithm import BaseControlAlgorithm
 class GreenRouteInconsistencyAlgorithm(BaseControlAlgorithm):
 
     ALG_NAME = 'D.05'
-    ALG_DISPLAY_NAME = "Incohérence Importance / Itinéraire vert"
+    ALG_DISPLAY_NAME = "Itinéraire vert"
     ALG_GROUP = 'Controles du thème Transport'
     ALG_GROUP_ID = 'D'
     ALG_HELP = (
@@ -55,7 +55,7 @@ class GreenRouteInconsistencyAlgorithm(BaseControlAlgorithm):
                 self.GREEN_ROUTE_FIELD,
                 self.tr("Champ Itinéraire vert"),
                 parentLayerParameterName=self.INPUT_LAYER,
-                type=QgsProcessingParameterField.String
+                type=QgsProcessingParameterField.Any
             )
         )
         self.addParameter(
