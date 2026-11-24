@@ -2,6 +2,7 @@ from qgis.core import (
     QgsProcessingParameterVectorLayer,
     QgsProcessing,
     QgsProcessingParameterField,
+    QgsProcessingParameterFile,
     QgsWkbTypes,
     QgsGeometry,
     QgsPointXY
@@ -20,13 +21,6 @@ class DiscontinuityRoadClassificationAlgorithm(BaseControlAlgorithm):
         "Ce contrôle recherche les discontinuités, c'est-à-dire les noeuds d'ordre 1 sur le réseau autoroutier, "
         "puis sur le réseau autoroutier ou national et enfin sur le réseau autoroutier, national ou départemental."
     )
-
-    # Paliers cumulés étudiés successivement : Autoroutier, puis +National, puis +Départemental
-    ROAD_CLASSIFICATION_LEVELS = [
-        {'Autoroute'},
-        {'Autoroute', 'Nationale'},
-        {'Autoroute', 'Nationale', 'Départementale'},
-    ]
 
     SEGMENT_LAYER = 'SEGMENT_LAYER'
     SEGMENT_KEY_FIELD = 'SEGMENT_KEY_FIELD'
@@ -75,6 +69,13 @@ class DiscontinuityRoadClassificationAlgorithm(BaseControlAlgorithm):
                 type=QgsProcessingParameterField.String
             )
         )
+        self.addParameter(
+            QgsProcessingParameterFile(
+                self.PARAM_JSON,
+                self.tr('Paliers de classement (JSON)'),
+                extension='json'
+            )
+        )
         super().initAlgorithm(config)
 
     def processAlgorithm(self, parameters, context, feedback):
@@ -83,8 +84,13 @@ class DiscontinuityRoadClassificationAlgorithm(BaseControlAlgorithm):
         complex_layer = self.parameterAsVectorLayer(parameters, self.COMPLEX_LAYER, context)
         complex_key_field = self.parameterAsString(parameters, self.COMPLEX_KEY_FIELD, context)
         type_route_field = self.parameterAsString(parameters, self.COMPLEX_TYPE_FIELD, context)
+        json_path = self.parameterAsFile(parameters, self.PARAM_JSON, context)
         id_field = self.get_id_field(parameters, context)
         if not self.validate_id_field(segment_layer, id_field, feedback):
+            return {'OUTPUT': 'Erreur'}
+
+        road_classification_levels = self.load_road_classification_levels(json_path, feedback)
+        if road_classification_levels is None:
             return {'OUTPUT': 'Erreur'}
 
         if segment_key_field not in segment_layer.fields().names():
@@ -141,7 +147,7 @@ class DiscontinuityRoadClassificationAlgorithm(BaseControlAlgorithm):
         # Pour chaque palier cumulé (Autoroutier ; +National ; +Départemental), on
         # construit le sous-graphe des tronçons concernés et on recherche les
         # noeuds d'ordre 1 (extrémités libres), révélateurs d'une discontinuité.
-        for level in self.ROAD_CLASSIFICATION_LEVELS:
+        for level in road_classification_levels:
             endpoints = {}
             segment_endpoints = {}
 
@@ -174,4 +180,42 @@ class DiscontinuityRoadClassificationAlgorithm(BaseControlAlgorithm):
         self.report_issues(invalid_features, "Discontinuité palier")
 
         return self.processing_done_result()
+
+    def load_road_classification_levels(self, json_path, feedback):
+        """
+        Charge et valide le fichier JSON de paramétrage des paliers cumulés
+        de classement routier.
+
+        Format attendu : une liste de listes de valeurs du champ Type de
+        route, par exemple :
+        [["Autoroute"], ["Autoroute", "Nationale"], ["Autoroute", "Nationale", "Départementale"]]
+
+        :return: la liste de paliers (chaque palier étant un set de valeurs),
+            ou None si le fichier est invalide (une erreur est alors remontée
+            via `feedback`).
+        """
+        try:
+            road_classification_levels = self.load_json_parameters(json_path)
+        except (OSError, ValueError) as e:
+            feedback.reportError(
+                self.tr("Impossible de lire le fichier JSON de paramétrage des paliers : {}").format(e)
+            )
+            return None
+
+        if not isinstance(road_classification_levels, list) or not road_classification_levels:
+            feedback.reportError(
+                self.tr("Le fichier JSON de paramétrage des paliers doit contenir une liste non vide de listes de valeurs")
+            )
+            return None
+
+        levels = []
+        for level in road_classification_levels:
+            if not isinstance(level, list) or not all(isinstance(value, str) for value in level):
+                feedback.reportError(
+                    self.tr("Chaque palier du fichier JSON de paramétrage doit être une liste de chaînes de caractères")
+                )
+                return None
+            levels.append(set(level))
+
+        return levels
 
