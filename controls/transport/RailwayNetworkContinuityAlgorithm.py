@@ -17,7 +17,7 @@ class RailwayNetworkContinuityAlgorithm(BaseControlAlgorithm):
     ALG_DISPLAY_NAME = "Continuité du réseau TGV et Principal"
     ALG_GROUP = 'Controles du thème Transport ferroviaire'
     ALG_GROUP_ID = 'I'
-    ALG_HELP = "Ce contrôle détecte toutes les discontinuités du graphe formé par les tronçons de voie ferrée dont le champ Nature = 'LGV’"
+    ALG_HELP = "Ce contrôle détecte toutes les discontinuités du graphe formé par les tronçons de voie ferrée dont le champ Nature = 'LGV’ ou 'Voie ferrée principale'"
 
     INPUT_LAYER = 'INPUT_LAYER'
     NATURE_FIELD = 'NATURE_FIELD'
